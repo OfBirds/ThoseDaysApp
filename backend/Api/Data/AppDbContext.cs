@@ -37,6 +37,7 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.StartDate).IsRequired();
             entity.Property(e => e.DurationDays).IsRequired();
+            entity.Property(e => e.Auto).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<Prediction>(entity =>

@@ -18,7 +18,8 @@ public class CyclesController(ICycleService cycleService) : ControllerBase
             StartDate = c.StartDate,
             DurationDays = c.DurationDays,
             CreatedAt = c.CreatedAt,
-            Corrected = c.Corrected
+            Corrected = c.Corrected,
+            Auto = c.Auto
         }).ToList();
 
         return Ok(responses);
@@ -34,7 +35,8 @@ public class CyclesController(ICycleService cycleService) : ControllerBase
             StartDate = cycle.StartDate,
             DurationDays = cycle.DurationDays,
             CreatedAt = cycle.CreatedAt,
-            Corrected = cycle.Corrected
+            Corrected = cycle.Corrected,
+            Auto = cycle.Auto
         };
 
         return CreatedAtAction(nameof(GetCycles), new { userId }, response);
@@ -53,7 +55,8 @@ public class CyclesController(ICycleService cycleService) : ControllerBase
             StartDate = cycle.StartDate,
             DurationDays = cycle.DurationDays,
             CreatedAt = cycle.CreatedAt,
-            Corrected = cycle.Corrected
+            Corrected = cycle.Corrected,
+            Auto = cycle.Auto
         };
 
         return Ok(response);

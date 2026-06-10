@@ -22,6 +22,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
 
+builder.Services.Configure<Api.Config.RecalcConfig>(builder.Configuration.GetSection("Recalc"));
+
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
 

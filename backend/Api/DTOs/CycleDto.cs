@@ -19,6 +19,7 @@ public class CycleResponse
     public int DurationDays { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool Corrected { get; set; }
+    public bool Auto { get; set; }
 }
 
 public class PredictionResponse
@@ -39,4 +40,23 @@ public class StatsResponse
 public class PredictionRequest
 {
     public int Cycles { get; set; } = 15;
+}
+
+/// <summary>
+/// The committed draft sent on Recalculate: the full set of painted period days
+/// (ISO yyyy-MM-dd local dates) plus optional user overrides of the two averages.
+/// </summary>
+public class RecalcRequest
+{
+    public List<string> Days { get; set; } = [];
+    public int? CycleLength { get; set; }
+    public int? PeriodDuration { get; set; }
+}
+
+public class RecalcResponse
+{
+    public int CycleLength { get; set; }
+    public int PeriodDuration { get; set; }
+    public List<CycleResponse> Cycles { get; set; } = [];
+    public List<PredictionResponse> Forecast { get; set; } = [];
 }
