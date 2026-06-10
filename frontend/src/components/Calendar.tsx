@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
-import { getDraft, saveDraft, Draft } from '../lib/storage';
+import { getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, Draft } from '../lib/storage';
 
 interface Cycle {
   id: string;
@@ -20,6 +20,8 @@ interface Prediction {
 }
 
 interface RecalcConfig {
+  weights: number[];
+  tailWeight: number;
   defaultCycleLength: number;
   defaultPeriodDuration: number;
   cycleLengthMin: number;
@@ -35,6 +37,8 @@ interface CalendarProps {
 }
 
 const DEFAULT_CONFIG: RecalcConfig = {
+  weights: [3, 2, 1],
+  tailWeight: 1,
   defaultCycleLength: 28,
   defaultPeriodDuration: 5,
   cycleLengthMin: 21,
@@ -56,6 +60,9 @@ const addDaysIso = (iso: string, n: number) => {
   return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 };
 
+const daysBetween = (a: string, b: string) =>
+  Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+
 // Expand cycles/predictions (start + duration) into the set of ISO day strings.
 function spanDays(startIso: string, duration: number): string[] {
   const out: string[] = [];
@@ -69,6 +76,50 @@ function cyclesToDays(cycles: Cycle[]): string[] {
   return [...set].sort();
 }
 
+// Collapse painted days into consecutive-day periods. Mirrors the backend.
+function groupPeriods(days: string[]): { start: string; length: number }[] {
+  const sorted = [...new Set(days)].sort();
+  const periods: { start: string; length: number }[] = [];
+  let runStart: string | null = null;
+  let prev: string | null = null;
+  let len = 0;
+  for (const d of sorted) {
+    if (runStart === null) { runStart = d; len = 1; }
+    else if (d === addDaysIso(prev!, 1)) { len++; }
+    else { periods.push({ start: runStart, length: len }); runStart = d; len = 1; }
+    prev = d;
+  }
+  if (runStart !== null) periods.push({ start: runStart, length: len });
+  return periods;
+}
+
+// Recent-favored weighted mean, rounded. Values newest → oldest. Mirrors the backend.
+function weightedAvg(valuesNewestFirst: number[], weights: number[], tailWeight: number, fallback: number) {
+  if (valuesNewestFirst.length === 0) return fallback;
+  let ws = 0, wt = 0;
+  for (let i = 0; i < valuesNewestFirst.length; i++) {
+    const w = i < weights.length ? weights[i] : tailWeight;
+    ws += valuesNewestFirst[i] * w;
+    wt += w;
+  }
+  return wt > 0 ? Math.round(ws / wt) : fallback;
+}
+
+function computeAverages(days: string[], config: RecalcConfig) {
+  const periods = groupPeriods(days);
+  if (periods.length === 0) {
+    return { cycleLength: config.defaultCycleLength, periodDuration: config.defaultPeriodDuration };
+  }
+  const durations: number[] = [];
+  for (let i = periods.length - 1; i >= 0; i--) durations.push(periods[i].length);
+  const intervals: number[] = [];
+  for (let i = periods.length - 1; i >= 1; i--) intervals.push(daysBetween(periods[i - 1].start, periods[i].start));
+  return {
+    cycleLength: weightedAvg(intervals, config.weights, config.tailWeight, config.defaultCycleLength),
+    periodDuration: weightedAvg(durations, config.weights, config.tailWeight, config.defaultPeriodDuration)
+  };
+}
+
 function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -79,11 +130,9 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
     periodDuration: DEFAULT_CONFIG.defaultPeriodDuration,
     dirty: false
   });
+  const [autoUpdate, setAutoUpdate] = useState(getAutoUpdate);
   const [recalculating, setRecalculating] = useState(false);
   const [error, setError] = useState('');
-  // Track whether the user manually changed a field. If not, recalc sends null so
-  // the backend uses the weighted average (spec: override wins, else weighted).
-  const [edited, setEdited] = useState({ cycleLength: false, periodDuration: false });
 
   // Days that came from auto-filled (elapsed-forecast) cycles, for the marker.
   const autoDays = new Set(cyclesToDays(cycles.filter(c => c.auto)));
@@ -97,49 +146,47 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
     }
   }, [userId]);
 
-  // One-time init: config + predictions + seed the fields from current averages.
+  // One-time init: config + predictions.
   useEffect(() => {
     fetch('/api/config')
       .then(r => (r.ok ? r.json() : null))
       .then(c => c && setConfig(c))
       .catch(() => {});
-
-    fetch(`/api/user/${userId}/stats`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(s => {
-        if (!s) return;
-        const stored = getDraft(userId);
-        if (stored && stored.dirty) return; // keep unsaved edits
-        setDraft(prev => ({
-          ...prev,
-          // averageInterval = cycle length, averageCycleLength = period duration
-          cycleLength: s.averageInterval > 0 ? Math.round(s.averageInterval) : prev.cycleLength,
-          periodDuration: s.averageCycleLength > 0 ? Math.round(s.averageCycleLength) : prev.periodDuration
-        }));
-      })
-      .catch(() => {});
-
     void fetchPredictions();
   }, [userId, fetchPredictions]);
 
-  // Seed the draft from the DB actuals, unless an unsaved (dirty) draft exists.
+  // Seed the draft from the DB actuals (and the fields from their average),
+  // unless an unsaved (dirty) draft exists.
   useEffect(() => {
     const stored = getDraft(userId);
     if (stored && stored.dirty) {
       setDraft(stored);
       return;
     }
-    setDraft(prev => ({
-      ...prev,
-      days: cyclesToDays(cycles),
-      dirty: false
-    }));
-  }, [cycles, userId]);
+    const days = cyclesToDays(cycles);
+    const avg = computeAverages(days, config);
+    setDraft({ days, cycleLength: avg.cycleLength, periodDuration: avg.periodDuration, dirty: false });
+  }, [cycles, userId, config]);
+
+  // Live auto-update: when on, the fields track the painted calendar.
+  useEffect(() => {
+    if (!autoUpdate) return;
+    const avg = computeAverages(draft.days, config);
+    setDraft(prev =>
+      prev.cycleLength === avg.cycleLength && prev.periodDuration === avg.periodDuration
+        ? prev
+        : { ...prev, cycleLength: avg.cycleLength, periodDuration: avg.periodDuration }
+    );
+  }, [draft.days, autoUpdate, config]);
 
   // Persist the draft whenever it changes (functional updates below stay race-free).
   useEffect(() => {
     saveDraft(userId, draft);
   }, [draft, userId]);
+
+  useEffect(() => {
+    saveAutoUpdate(autoUpdate);
+  }, [autoUpdate]);
 
   const toggleDay = (iso: string) => {
     setDraft(prev => {
@@ -151,25 +198,36 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
 
   const setField = (key: 'cycleLength' | 'periodDuration', value: number) => {
     setDraft(prev => ({ ...prev, [key]: value, dirty: true }));
-    setEdited(prev => ({ ...prev, [key]: true }));
   };
 
   const handleRecalculate = async () => {
     setError('');
 
-    // Only warn about values the user actually typed (spec: "if a value is too big or small").
-    const cl = edited.cycleLength ? draft.cycleLength : null;
-    const pd = edited.periodDuration ? draft.periodDuration : null;
-    const clBad = cl !== null && (cl < config.cycleLengthMin || cl > config.cycleLengthMax);
-    const pdBad = pd !== null && (pd < config.periodDurationMin || pd > config.periodDurationMax);
-
-    if (clBad || pdBad) {
-      const ok = window.confirm(
-        `Those values are outside the usual range ` +
-        `(cycle ${config.cycleLengthMin}-${config.cycleLengthMax} days, ` +
-        `period ${config.periodDurationMin}-${config.periodDurationMax} days).\n\nAre you sure?`
+    // Past is fine, but periods can't be committed more than 3 days ahead.
+    const cutoff = addDaysIso(isoDate(new Date()), 3);
+    const tooFar = draft.days.filter(d => d > cutoff).sort();
+    if (tooFar.length > 0) {
+      setError(
+        `Can't save periods more than 3 days in the future (through ${cutoff}). ` +
+        `Remove: ${tooFar.join(', ')}.`
       );
-      if (!ok) return;
+      return;
+    }
+
+    // In manual mode the fields are user input, so warn on out-of-range values.
+    if (!autoUpdate) {
+      const cl = draft.cycleLength, pd = draft.periodDuration;
+      const bad =
+        cl < config.cycleLengthMin || cl > config.cycleLengthMax ||
+        pd < config.periodDurationMin || pd > config.periodDurationMax;
+      if (bad) {
+        const ok = window.confirm(
+          `Those values are outside the usual range ` +
+          `(cycle ${config.cycleLengthMin}-${config.cycleLengthMax} days, ` +
+          `period ${config.periodDurationMin}-${config.periodDurationMax} days).\n\nAre you sure?`
+        );
+        if (!ok) return;
+      }
     }
 
     setRecalculating(true);
@@ -179,8 +237,8 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           days: draft.days,
-          cycleLength: cl,        // null → backend uses weighted average
-          periodDuration: pd
+          cycleLength: draft.cycleLength,
+          periodDuration: draft.periodDuration
         })
       });
       if (!res.ok) throw new Error('Recalculation failed');
@@ -193,7 +251,6 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
         periodDuration: data.periodDuration,
         dirty: false
       });
-      setEdited({ cycleLength: false, periodDuration: false });
       onCommitted();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Recalculation failed');
@@ -209,11 +266,7 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
   const predictionIndexFor = (iso: string) =>
     predictions.findIndex(p => spanDays(p.predictedStart.slice(0, 10), p.predictedDuration).includes(iso));
 
-  const predictionColor = (index: number) => {
-    if (index === 0) return '#ff6b6b';
-    if (index === 1) return '#ffb86b';
-    return '#ffd966';
-  };
+  const tierClass = (index: number) => (index === 0 ? 'tier-0' : index === 1 ? 'tier-1' : 'tier-2');
 
   const renderDays = () => {
     const cells = [];
@@ -233,13 +286,13 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
           <span className="day-number">{day}</span>
           {isActual && (
             <div className={`period-mark actual${isAuto ? ' auto' : ''}`}>
-              <BloodDropIcon color="#ff6b6b" />
+              <BloodDropIcon />
               {isAuto && <span className="calc-badge" title="Auto-filled">✎</span>}
             </div>
           )}
           {predIndex >= 0 && (
-            <div className="period-mark predicted" style={{ color: predictionColor(predIndex) }}>
-              <BloodDropIcon color={predictionColor(predIndex)} />
+            <div className={`period-mark predicted ${tierClass(predIndex)}`}>
+              <BloodDropIcon />
               <span className="calc-badge" title="Calculated">∿</span>
             </div>
           )}
@@ -254,32 +307,46 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
   return (
     <div className="calendar">
       <div className="recalc-bar">
-        <div className="recalc-field">
-          <label htmlFor="cycleLength">Cycle length</label>
-          <input
-            id="cycleLength"
-            type="number"
-            min={1}
-            value={draft.cycleLength}
-            onChange={e => setField('cycleLength', Number(e.target.value))}
-          />
-          <span className="recalc-unit">days</span>
+        <div className="recalc-controls">
+          <div className="recalc-field">
+            <label htmlFor="cycleLength">Cycle length</label>
+            <div className="recalc-input-row">
+              <input
+                id="cycleLength"
+                type="number"
+                min={1}
+                value={draft.cycleLength}
+                onChange={e => setField('cycleLength', Number(e.target.value))}
+              />
+              <span className="recalc-unit">days</span>
+            </div>
+          </div>
+          <div className="recalc-field">
+            <label htmlFor="periodDuration">Period duration</label>
+            <div className="recalc-input-row">
+              <input
+                id="periodDuration"
+                type="number"
+                min={1}
+                value={draft.periodDuration}
+                onChange={e => setField('periodDuration', Number(e.target.value))}
+              />
+              <span className="recalc-unit">days</span>
+            </div>
+          </div>
+          <button className="recalc-button" onClick={handleRecalculate} disabled={recalculating}>
+            {recalculating ? 'Recalculating…' : 'Recalculate'}
+          </button>
+          {draft.dirty && <span className="unsaved-badge" title="Unsaved changes">●&nbsp;Unsaved</span>}
         </div>
-        <div className="recalc-field">
-          <label htmlFor="periodDuration">Period duration</label>
+        <label className="auto-update-toggle">
           <input
-            id="periodDuration"
-            type="number"
-            min={1}
-            value={draft.periodDuration}
-            onChange={e => setField('periodDuration', Number(e.target.value))}
+            type="checkbox"
+            checked={autoUpdate}
+            onChange={e => setAutoUpdate(e.target.checked)}
           />
-          <span className="recalc-unit">days</span>
-        </div>
-        <button className="recalc-button" onClick={handleRecalculate} disabled={recalculating}>
-          {recalculating ? 'Recalculating…' : 'Recalculate'}
-        </button>
-        {draft.dirty && <span className="unsaved-badge" title="Unsaved changes">●&nbsp;Unsaved</span>}
+          Auto-update from calendar
+        </label>
       </div>
 
       {error && <div className="recalc-error">{error}</div>}
@@ -309,9 +376,9 @@ function Calendar({ cycles, onCommitted, userId }: CalendarProps) {
       </div>
 
       <div className="calendar-legend">
-        <div className="legend-item"><BloodDropIcon color="#ff6b6b" /> Actual Period</div>
-        <div className="legend-item"><BloodDropIcon color="#ffb86b" /> Next Predicted</div>
-        <div className="legend-item"><BloodDropIcon color="#ffd966" /> Future Predicted</div>
+        <div className="legend-item period-mark actual"><BloodDropIcon /> Actual Period</div>
+        <div className="legend-item period-mark tier-0"><BloodDropIcon /> Next Predicted</div>
+        <div className="legend-item period-mark tier-2"><BloodDropIcon /> Future Predicted</div>
         <div className="legend-item"><span className="calc-badge inline">✎</span> Auto-filled</div>
       </div>
     </div>

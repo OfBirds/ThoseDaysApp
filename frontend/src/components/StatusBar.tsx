@@ -10,7 +10,7 @@ function StatusBar({ averageCycleLength, averageInterval, totalCycles }: StatusB
   return (
     <div className="status-bar">
       <div className="status-bar-content">
-        <h1>ThoseDaysApp</h1>
+        <h2 className="status-title">Past analysis</h2>
         <div className="status-stats">
           <div className="stat">
             <span className="stat-label">Avg Cycle Length</span>

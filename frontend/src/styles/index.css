@@ -10,6 +10,11 @@
   /* surfaces — referenced instead of hard-coded #FFF so the theme can flip them */
   --bg: #FFFFFF;
   --surface: #FFFFFF;
+  /* period/forecast symbol colors — darker on light theme for contrast */
+  --period-actual: #D32F2F;
+  --pred-next: #E64A19;
+  --pred-soon: #EF6C00;
+  --pred-later: #B8860B;
 }
 
 [data-theme='dark'] {
@@ -19,7 +24,15 @@
   --border: #374151;
   --bg: #0F1422;
   --surface: #181E2E;
-  /* brand colors stay; only surfaces and text invert */
+  /* brand colors stay; only surfaces and text invert. Symbols keep the bright tiers. */
+  --period-actual: #ff6b6b;
+  --pred-next: #ff6b6b;
+  --pred-soon: #ffb86b;
+  --pred-later: #ffd966;
+}
+
+html {
+  font-size: calc(16px * var(--font-scale, 1));
 }
 
 * {

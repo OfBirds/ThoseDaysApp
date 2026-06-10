@@ -7,24 +7,37 @@
 
 .recalc-bar {
   display: flex;
-  align-items: flex-end;
-  gap: 1.25rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.85rem;
   padding: 1.25rem 1.5rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 }
 
+.recalc-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
 .recalc-field {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.35rem;
 }
 
 .recalc-field label {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-light);
+}
+
+.recalc-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.6rem;
 }
 
 .recalc-field input {
@@ -38,10 +51,28 @@
   color: var(--text-light);
 }
 
+.auto-update-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: var(--text-light);
+  cursor: pointer;
+  user-select: none;
+}
+
+.auto-update-toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
 .recalc-button {
   background: var(--primary);
   color: white;
-  padding: 0.6rem 1.25rem;
+  height: 2.6rem;
+  padding: 0 1.25rem;
   border-radius: 6px;
   font-weight: 600;
   transition: opacity 0.2s, transform 0.1s;
@@ -62,6 +93,9 @@
   font-weight: 600;
   color: var(--accent);
   align-self: center;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
 }
 
 .recalc-error {
@@ -104,19 +138,16 @@
 }
 
 .calc-badge {
-  font-size: 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 700;
   line-height: 1;
   margin-left: 1px;
-  color: var(--text-light);
+  color: inherit; /* matches the drop's tier color */
 }
 
 .calc-badge.inline {
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-.period-mark.auto .calc-badge {
-  color: var(--primary);
+  font-size: 1.1rem;
+  color: var(--period-actual);
 }
 
 .calendar-header {
@@ -209,12 +240,25 @@
   margin-top: 0.25rem;
 }
 
-.period-mark.actual {
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+/* Symbols sized in em so they scale with the font-size control. ~30% bigger. */
+.period-mark svg {
+  width: 1.65em;
+  height: 1.65em;
 }
 
-.period-mark.predicted {
-  opacity: 0.7;
+.period-mark.actual { color: var(--period-actual); }
+.period-mark.tier-0 { color: var(--pred-next); }
+.period-mark.tier-1 { color: var(--pred-soon); }
+.period-mark.tier-2 { color: var(--pred-later); }
+
+.period-mark.actual {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+/* legend swatches a touch smaller than the calendar marks */
+.calendar-legend .period-mark svg {
+  width: 1.25em;
+  height: 1.25em;
 }
 
 .calendar-legend {

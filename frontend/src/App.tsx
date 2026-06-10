@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { getFontScale, saveFontScale } from './lib/storage';
 import Calendar from './components/Calendar';
 import StatusBar from './components/StatusBar';
+import BloodDropIcon from './components/BloodDropIcon';
 import LoginPage from './pages/LoginPage';
 import './styles/app.css';
+
+const FONT_MIN = 40;
+const FONT_MAX = 200;
+const FONT_STEP = 20;
+
+function applyFontScale(pct: number) {
+  document.documentElement.style.setProperty('--font-scale', String(pct / 100));
+}
 
 interface Cycle {
   id: string;
@@ -39,6 +49,26 @@ function ThemeToggle() {
     >
       {theme === 'dark' ? '☀️' : '🌙'}
     </button>
+  );
+}
+
+function FontSizeControl() {
+  const [scale, setScale] = useState(getFontScale);
+
+  useEffect(() => {
+    applyFontScale(scale);
+    saveFontScale(scale);
+  }, [scale]);
+
+  const adjust = (delta: number) =>
+    setScale(s => Math.min(FONT_MAX, Math.max(FONT_MIN, s + delta)));
+
+  return (
+    <div className="font-control" title="Text size">
+      <button onClick={() => adjust(-FONT_STEP)} disabled={scale <= FONT_MIN} aria-label="Smaller text">A−</button>
+      <span className="font-control-value">{scale}%</span>
+      <button onClick={() => adjust(FONT_STEP)} disabled={scale >= FONT_MAX} aria-label="Larger text">A+</button>
+    </div>
   );
 }
 
@@ -90,10 +120,16 @@ function AppContent() {
   return (
     <div className="app">
       <header className="app-header">
-        <span className="app-header-email">{user.email}</span>
-        <ThemeToggle />
-        <button className="logout-button" onClick={logout}>Logout</button>
+        <FontSizeControl />
+        <div className="app-header-right">
+          <span className="app-header-email">{user.email}</span>
+          <ThemeToggle />
+          <button className="logout-button" onClick={logout}>Logout</button>
+        </div>
       </header>
+      <main className="app-main">
+        <Calendar cycles={cycles} onCommitted={fetchData} userId={user.id} />
+      </main>
       {stats && (
         <StatusBar
           averageCycleLength={stats.averageCycleLength}
@@ -101,14 +137,19 @@ function AppContent() {
           totalCycles={stats.totalCycles}
         />
       )}
-      <main className="app-main">
-        <Calendar cycles={cycles} onCommitted={fetchData} userId={user.id} />
-      </main>
+      <footer className="app-footer">
+        <BloodDropIcon size={16} />
+        <span className="app-brand">ThoseDaysApp</span>
+      </footer>
     </div>
   );
 }
 
 function App() {
+  useEffect(() => {
+    applyFontScale(getFontScale());
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>

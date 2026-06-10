@@ -3,7 +3,7 @@ interface BloodDropIconProps {
   size?: number;
 }
 
-function BloodDropIcon({ color = '#FF6B6B', size = 20 }: BloodDropIconProps) {
+function BloodDropIcon({ color = 'currentColor', size = 20 }: BloodDropIconProps) {
   return (
     <svg
       width={size}

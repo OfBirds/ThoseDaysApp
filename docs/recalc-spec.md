@@ -117,6 +117,18 @@ If the user types a value outside the configured normal range, show an
    repeated `forecastCount` times; each future period paints `duration` days.
 5. Return forecast; frontend paints it.
 
+## 6a. Live field auto-update
+
+The two fields can track the calendar automatically so one recalc is enough
+(no stale defaults):
+
+- Computed **on the frontend** from the painted days, mirroring the backend
+  weighted formula (same `/api/config` weights).
+- Toggled by an **"Auto-update from calendar"** checkbox under the fields,
+  persisted per browser (`tda:autoUpdate`, default **on**).
+- **On:** fields refill live as you paint; typing is a one-off until the next edit.
+- **Off:** fields are manual; the outlier "are you sure?" applies to typed values.
+
 ## 7. Auto-painting
 
 The user never has to hand-paint the forecast — Recalculate always generates and
@@ -126,8 +138,11 @@ paints it. "If a user forgets, it's painted as automatic."
 
 - **Actual periods:** red blood-drop (current).
 - **Forecast periods:** distinct **color tier** *plus* a **"calculated" marker**
-  (small symbol on the drop) so it's never color-only (WCAG AA). Near vs. far
-  reuse the existing `#ffb86b` / `#ffd966` tiers.
+  (small symbol on the drop) so it's never color-only (WCAG AA).
+- Tier colors are CSS variables: **darker on light theme** (red / deep-orange /
+  goldenrod) for contrast; dark theme keeps the bright `#ffb86b` / `#ffd966`.
+- Symbols sized in `em` (~30% bigger) so they scale with the **font-size control**
+  (header, 40–200%, step 20, default 100%, persisted as `tda:fontScale`).
 
 ## 9. Recalculation loading state
 

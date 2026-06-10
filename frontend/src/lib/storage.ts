@@ -44,3 +44,11 @@ export const clearDraft = (userId: string) => remove(`draft:${userId}`);
 export type Theme = 'light' | 'dark';
 export const getTheme = () => read<Theme>('theme');
 export const saveTheme = (theme: Theme) => write('theme', theme);
+
+// --- Auto-update preference (fields track the calendar) ---
+export const getAutoUpdate = () => read<boolean>('autoUpdate') ?? true;
+export const saveAutoUpdate = (on: boolean) => write('autoUpdate', on);
+
+// --- Font scale (percent, e.g. 100) ---
+export const getFontScale = () => read<number>('fontScale') ?? 100;
+export const saveFontScale = (pct: number) => write('fontScale', pct);
