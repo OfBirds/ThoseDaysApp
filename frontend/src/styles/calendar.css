@@ -1,8 +1,122 @@
 .calendar {
-  background: white;
+  background: var(--surface);
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
+}
+
+.recalc-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 1.25rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.recalc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.recalc-field label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+.recalc-field input {
+  width: 5rem;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.recalc-unit {
+  font-size: 0.75rem;
+  color: var(--text-light);
+}
+
+.recalc-button {
+  background: var(--primary);
+  color: white;
+  padding: 0.6rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.recalc-button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.recalc-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.unsaved-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--accent);
+  align-self: center;
+}
+
+.recalc-error {
+  background: #FEE;
+  color: var(--error);
+  padding: 0.6rem 1.5rem;
+  font-size: 0.875rem;
+  border-left: 4px solid var(--error);
+}
+
+.calendar-body {
+  position: relative;
+}
+
+.calendar-loading {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--surface) 75%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  font-weight: 600;
+  color: var(--text);
+  z-index: 5;
+}
+
+.spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 4px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.calc-badge {
+  font-size: 0.7rem;
+  line-height: 1;
+  margin-left: 1px;
+  color: var(--text-light);
+}
+
+.calc-badge.inline {
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.period-mark.auto .calc-badge {
+  color: var(--primary);
 }
 
 .calendar-header {
@@ -66,7 +180,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: white;
+  background: var(--surface);
 }
 
 .calendar-day:hover:not(.empty) {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Calendar from './components/Calendar';
 import StatusBar from './components/StatusBar';
 import LoginPage from './pages/LoginPage';
@@ -11,6 +12,7 @@ interface Cycle {
   durationDays: number;
   createdAt: string;
   corrected: boolean;
+  auto: boolean;
 }
 
 interface Stats {
@@ -19,17 +21,50 @@ interface Stats {
   totalCycles: number;
 }
 
+function localDateString(date: Date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      className="theme-toggle"
+      onClick={toggleTheme}
+      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+    >
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  );
+}
+
 function AppContent() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetchData();
+      void reconcileThenFetch();
     }
   }, [user]);
+
+  // On load: catch up any elapsed forecasts (auto-fill), then load data.
+  const reconcileThenFetch = async () => {
+    try {
+      await fetch(`/api/user/${user!.id}/reconcile?today=${localDateString(new Date())}`, {
+        method: 'POST'
+      });
+    } catch (error) {
+      console.error('Reconcile failed:', error);
+    }
+    await fetchData();
+  };
 
   const fetchData = async () => {
     try {
@@ -39,23 +74,14 @@ function AppContent() {
         fetch(`/api/user/${user!.id}/stats`)
       ]);
 
-      if (cyclesRes.ok) {
-        const cyclesData = await cyclesRes.json();
-        setCycles(cyclesData);
-      }
-
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setStats(statsData);
-      }
+      if (cyclesRes.ok) setCycles(await cyclesRes.json());
+      if (statsRes.ok) setStats(await statsRes.json());
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
-
-  const { logout } = useAuth();
 
   if (!user) {
     return <LoginPage onLoginSuccess={() => {}} />;
@@ -65,6 +91,7 @@ function AppContent() {
     <div className="app">
       <header className="app-header">
         <span className="app-header-email">{user.email}</span>
+        <ThemeToggle />
         <button className="logout-button" onClick={logout}>Logout</button>
       </header>
       {stats && (
@@ -75,7 +102,7 @@ function AppContent() {
         />
       )}
       <main className="app-main">
-        <Calendar cycles={cycles} onCycleAdded={fetchData} userId={user.id} />
+        <Calendar cycles={cycles} onCommitted={fetchData} userId={user.id} />
       </main>
     </div>
   );
@@ -83,9 +110,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

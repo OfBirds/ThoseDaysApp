@@ -7,6 +7,19 @@
   --border: #E5E7EB;
   --success: #10B981;
   --error: #EF4444;
+  /* surfaces — referenced instead of hard-coded #FFF so the theme can flip them */
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+}
+
+[data-theme='dark'] {
+  --neutral: #1F2433;
+  --text: #E5E7EB;
+  --text-light: #9CA3AF;
+  --border: #374151;
+  --bg: #0F1422;
+  --surface: #181E2E;
+  /* brand colors stay; only surfaces and text invert */
 }
 
 * {
@@ -23,8 +36,9 @@ html, body, #root {
 body {
   font-family: 'Inter', sans-serif;
   color: var(--text);
-  background-color: #FFFFFF;
+  background-color: var(--bg);
   line-height: 1.6;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
