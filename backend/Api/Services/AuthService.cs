@@ -11,6 +11,7 @@ public interface IAuthService
     Task<User?> RegisterAsync(string email, string password);
     Task<User?> LoginAsync(string email, string password);
     Task<bool> ValidatePasswordAsync(string password);
+    Task<bool> ResetPasswordAsync(string email, string newPassword);
 }
 
 public class AuthService(AppDbContext context) : IAuthService
@@ -47,6 +48,20 @@ public class AuthService(AppDbContext context) : IAuthService
             return null;
 
         return user;
+    }
+
+    public async Task<bool> ResetPasswordAsync(string email, string newPassword)
+    {
+        if (!await ValidatePasswordAsync(newPassword))
+            return false;
+
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email == email);
+        if (user == null)
+            return false;
+
+        user.PasswordHash = HashPassword(newPassword);
+        await context.SaveChangesAsync();
+        return true;
     }
 
     public Task<bool> ValidatePasswordAsync(string password)

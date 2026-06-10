@@ -48,6 +48,34 @@
   font-size: 0.95rem;
 }
 
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-wrapper input {
+  flex: 1;
+  padding-right: 2.75rem;
+}
+
+.eye-button {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.eye-button:hover {
+  color: var(--primary);
+}
+
 .form-group input {
   padding: 0.75rem;
   border: 2px solid var(--border);
@@ -68,6 +96,21 @@
   border-radius: 6px;
   font-size: 0.9rem;
   border-left: 4px solid var(--error);
+}
+
+.success-message {
+  background: #EFF;
+  color: #2A7;
+  padding: 0.75rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border-left: 4px solid #2A7;
+}
+
+.forgot-link {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
 }
 
 .submit-button {

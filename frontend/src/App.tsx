@@ -55,12 +55,18 @@ function AppContent() {
     }
   };
 
+  const { logout } = useAuth();
+
   if (!user) {
     return <LoginPage onLoginSuccess={() => {}} />;
   }
 
   return (
     <div className="app">
+      <header className="app-header">
+        <span className="app-header-email">{user.email}</span>
+        <button className="logout-button" onClick={logout}>Logout</button>
+      </header>
       {stats && (
         <StatusBar
           averageCycleLength={stats.averageCycleLength}

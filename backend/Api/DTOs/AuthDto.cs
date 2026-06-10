@@ -19,6 +19,12 @@ public class AuthResponse
     public required string Token { get; set; }
 }
 
+public class ResetPasswordRequest
+{
+    public required string Email { get; set; }
+    public required string NewPassword { get; set; }
+}
+
 public class UserResponse
 {
     public Guid Id { get; set; }

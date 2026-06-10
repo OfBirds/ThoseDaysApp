@@ -40,6 +40,16 @@ public class AuthController(IAuthService authService) : ControllerBase
         });
     }
 
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        var success = await authService.ResetPasswordAsync(request.Email, request.NewPassword);
+        if (!success)
+            return BadRequest(new { error = "Password reset failed. Check your email and ensure password is at least 8 characters." });
+
+        return Ok(new { message = "Password reset successful" });
+    }
+
     private static string GenerateSimpleToken(Guid userId)
     {
         var tokenData = $"{userId}:{DateTime.UtcNow.Ticks}";
