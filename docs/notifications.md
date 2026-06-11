@@ -76,15 +76,22 @@ if config.NOTIFY_ON_DEPLOY == true
 
 ## 3. Email transport
 
-SBB ISP mailbox over SMTP, via **MailKit** (modern .NET SMTP library; the legacy
-`SmtpClient` is deprecated).
+Outbound mail via **MailKit** (modern .NET SMTP library; the legacy `SmtpClient`
+is deprecated). The sender is **Gmail SMTP with an app password**.
 
-- Host/port: `smtp.sbb.rs:465`, implicit TLS → `SecureSocketOptions.SslOnConnect`.
-- SBB's cert may not chain cleanly ("accept all certs"), so a cert-validation
-  callback that accepts the known host will likely be needed.
-- Sending **as** `…@sbb.rs` through SBB's own SMTP means SPF/DKIM for `sbb.rs`
-  align (managed by SBB) — good deliverability, no domain of our own required.
-- Volume is trivial (a few/week), well under any ISP cap.
+- Host/port: `smtp.gmail.com:587`, STARTTLS → `SecureSocketOptions.StartTls`
+  (the sender picks the mode from the port: 465→SslOnConnect, 587→StartTls).
+- Auth uses a **Google App Password** (16 chars), which requires 2-Step
+  Verification on the account. The normal Google password will not work for SMTP.
+- Volume is trivial (a few/week), far under Gmail's limits.
+
+> History / lesson: the original plan was the SBB ISP mailbox (`smtp.sbb.rs`),
+> but that hostname is **NXDOMAIN** (dead) — `@sbb.rs` mail actually lives on
+> `sbb.nlnet.rs`. Even pointed there, SBB rejected the mailbox password
+> (`535 5.7.8`), and the account's auth had broken (Gmail's fetch of it failed
+> too). Gmail SMTP + app password was the clean, reliable substitute. Because
+> the transport is pure config, the switch was just env-file edits — no code
+> change. Seq made each failure mode (DNS → wrong host → auth) obvious.
 
 ### Config keys
 
@@ -94,14 +101,14 @@ Non-secret (env files, committed as `.example`):
 |---|---|---|
 | `NOTIFY_ON_DEPLOY` | `false` | `true` |
 | `PUBLIC_BASE_URL` | `http://vm.example.lan:9123` | `https://app.example.com` |
-| `SMTP_HOST` | `smtp.sbb.rs` | `smtp.sbb.rs` |
-| `SMTP_PORT` | `465` | `465` |
-| `SMTP_FROM` / `SMTP_USER` | `…@sbb.rs` | `…@sbb.rs` |
-| `SMTP_ACCEPT_ALL_CERTS` | `true` | `true` |
+| `SMTP_HOST` | (blank) | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` | `587` |
+| `SMTP_FROM` / `SMTP_USER` | (blank) | `…@gmail.com` |
+| `SMTP_ACCEPT_ALL_CERTS` | `true` | `false` (Gmail cert is valid) |
+| `SEQ_PORT` | `9133` | `9134` |
 
-Secret (the SMTP password) lives **only** in `/opt/<app>/.env.prod` on the
+Secret (the SMTP app password) lives **only** in `/opt/<app>/.env.prod` on the
 server, `chmod 600`, never committed — same handling as the DB password.
-Mail-only credential.
 
 ## 4. Recipients & opt-out
 
