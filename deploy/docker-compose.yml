@@ -31,12 +31,6 @@ services:
   app:
     image: ${APP_IMAGE}
     restart: unless-stopped
-    # Explicit resolvers so external lookups (e.g. smtp.sbb.rs for release mail)
-    # don't depend on the host's flaky DNS. Docker's embedded 127.0.0.11 still
-    # resolves the internal service names; these are just the upstream forwarders.
-    dns:
-      - 1.1.1.1
-      - 8.8.8.8
     depends_on:
       postgres:
         condition: service_healthy
