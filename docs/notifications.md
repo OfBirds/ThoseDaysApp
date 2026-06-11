@@ -147,7 +147,9 @@ Mail-only credential.
    and passes it via Dockerfile `ARG APP_VERSION`/`GIT_COMMIT`/`BUILD_TIME` →
    backend `InformationalVersion` + `GET /api/version`, frontend `__APP_VERSION__`
    define; image tagged `:<version>` too.
-2. **Data model**: migration for `Users` columns + `SystemSettings`.
+2. ✅ **Data model** (done): migration `AddNotificationsAndSettings` — `Users`
+   `NotifyReleases` (default true) + `UnsubscribeToken` (`gen_random_uuid()`,
+   backfills existing rows) + unique index; new `SystemSettings` key/value table.
 3. **Email service**: MailKit sender, config-bound, cert callback, async.
 4. **Startup notifier**: background task implementing the flow in §2.
 5. **Unsubscribe** endpoint + token.

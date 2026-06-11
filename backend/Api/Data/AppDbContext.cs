@@ -8,6 +8,7 @@ public class AppDbContext : DbContext
     public required DbSet<User> Users { get; set; }
     public required DbSet<Cycle> Cycles { get; set; }
     public required DbSet<Prediction> Predictions { get; set; }
+    public required DbSet<SystemSetting> SystemSettings { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -30,6 +31,10 @@ public class AppDbContext : DbContext
                 .WithOne(p => p.User)
                 .HasForeignKey(p => p.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+            entity.Property(e => e.NotifyReleases).HasDefaultValue(true);
+            // gen_random_uuid() backfills existing rows with unique tokens (PG15 core).
+            entity.Property(e => e.UnsubscribeToken).HasDefaultValueSql("gen_random_uuid()");
+            entity.HasIndex(e => e.UnsubscribeToken).IsUnique();
         });
 
         modelBuilder.Entity<Cycle>(entity =>
@@ -45,6 +50,11 @@ public class AppDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.PredictedStart).IsRequired();
             entity.Property(e => e.PredictedDuration).IsRequired();
+        });
+
+        modelBuilder.Entity<SystemSetting>(entity =>
+        {
+            entity.HasKey(e => e.Key);
         });
     }
 }

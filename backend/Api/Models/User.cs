@@ -8,6 +8,12 @@ public class User
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Whether this user receives "new version released" emails.</summary>
+    public bool NotifyReleases { get; set; } = true;
+
+    /// <summary>Opaque token for one-click unsubscribe links.</summary>
+    public Guid UnsubscribeToken { get; set; } = Guid.NewGuid();
+
     public ICollection<Cycle> Cycles { get; set; } = [];
     public ICollection<Prediction> Predictions { get; set; } = [];
 }
