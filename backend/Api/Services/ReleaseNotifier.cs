@@ -47,6 +47,14 @@ public class ReleaseNotifier(
             .Select(u => new { u.Email, u.UnsubscribeToken })
             .ToListAsync(ct);
 
+        // Read release notes baked into the image. Missing/empty → fall back gracefully.
+        var notesPath = Path.Combine(AppContext.BaseDirectory, "RELEASE_NOTES.md");
+        var releaseNotes = File.Exists(notesPath) ? await File.ReadAllTextAsync(notesPath, ct) : null;
+        if (!string.IsNullOrWhiteSpace(releaseNotes))
+            logger.LogInformation("Release notes loaded ({Length} chars).", releaseNotes.Length);
+        else
+            logger.LogInformation("No release notes found; email will be plain.");
+
         logger.LogInformation(
             "Release announcement starting for {Version}: {Recipients} opted-in user(s), link {Link}",
             version, recipients.Count, baseUrl);
@@ -56,7 +64,7 @@ public class ReleaseNotifier(
         foreach (var r in recipients)
         {
             var unsubscribe = $"{baseUrl}/api/unsubscribe?token={r.UnsubscribeToken}";
-            var (subject, html, text) = BuildEmail(version, baseUrl, unsubscribe);
+            var (subject, html, text) = BuildEmail(version, baseUrl, unsubscribe, releaseNotes);
             try
             {
                 await email.SendAsync(r.Email, subject, html, text, ct);
@@ -86,11 +94,63 @@ public class ReleaseNotifier(
     }
 
     private static (string subject, string html, string text) BuildEmail(
-        string version, string url, string unsubscribe)
+        string version, string url, string unsubscribe, string? releaseNotes)
     {
         var subject = $"ThoseDays — new version {version} is out";
+
+        // Render the release notes as HTML paragraphs and plain-text lines.
+        // Simple conversion: blank-line → paragraph break, bullet → <li>, else <p>.
+        var notesHtml = "";
+        var notesText = "";
+        if (!string.IsNullOrWhiteSpace(releaseNotes))
+        {
+            var lines = releaseNotes.Trim().Split('\n');
+            var htmlLines = new List<string>();
+            var textLines = new List<string>();
+            foreach (var raw in lines)
+            {
+                var line = raw.TrimEnd();
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    if (htmlLines.Count > 0 && htmlLines[^1] != "") htmlLines.Add("");
+                    continue;
+                }
+                if (line.TrimStart().StartsWith("- ") || line.TrimStart().StartsWith("* "))
+                {
+                    var bullet = line.TrimStart()[2..];
+                    htmlLines.Add($"<li>{System.Net.WebUtility.HtmlEncode(bullet)}</li>");
+                    textLines.Add($"• {bullet}");
+                }
+                else
+                {
+                    htmlLines.Add($"<p>{System.Net.WebUtility.HtmlEncode(line)}</p>");
+                    textLines.Add(line);
+                }
+            }
+            // Wrap consecutive <li> in a <ul>.
+            var grouped = new List<string>();
+            var i = 0;
+            while (i < htmlLines.Count)
+            {
+                if (htmlLines[i].StartsWith("<li>"))
+                {
+                    grouped.Add("<ul>");
+                    while (i < htmlLines.Count && htmlLines[i].StartsWith("<li>"))
+                        grouped.Add(htmlLines[i++]);
+                    grouped.Add("</ul>");
+                }
+                else
+                {
+                    grouped.Add(htmlLines[i++]);
+                }
+            }
+            notesHtml = string.Join("\n", grouped.Where(l => l != ""));
+            notesText = string.Join("\n", textLines) + "\n\n";
+        }
+
         var html = $"""
             <p>A new version of <strong>ThoseDays</strong> ({version}) has been released.</p>
+            {(notesHtml.Length > 0 ? notesHtml + "\n" : "")}
             <p><a href="{url}">Open ThoseDays</a></p>
             <hr>
             <p style="font-size:12px;color:#888">
@@ -98,7 +158,9 @@ public class ReleaseNotifier(
             </p>
             """;
         var text =
-            $"A new version of ThoseDays ({version}) has been released.\n{url}\n\n" +
+            $"A new version of ThoseDays ({version}) has been released.\n\n" +
+            $"{notesText}" +
+            $"{url}\n\n" +
             $"Unsubscribe: {unsubscribe}";
         return (subject, html, text);
     }

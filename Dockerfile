@@ -45,6 +45,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=backend /app/publish ./
+# Release notes baked into the image, read by ReleaseNotifier for the deploy email.
+COPY RELEASE_NOTES.md /app/RELEASE_NOTES.md
 # Expose build metadata to the app (read by GET /api/version).
 ENV APP_VERSION=$APP_VERSION \
     GIT_COMMIT=$GIT_COMMIT \
