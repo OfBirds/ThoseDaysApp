@@ -1,4 +1,4 @@
-### What's new in 1.0.X
+### What's new
 
 - **Today marker** — the current date is highlighted with an orange ring on the calendar
 - **Countdown badge** — the next period's first day shows a countdown (e.g. "5d")
