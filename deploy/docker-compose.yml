@@ -1,0 +1,52 @@
+# Parameterized stack template, shared by staging and prod.
+# Select an environment by pointing compose at its env file, e.g.:
+#   docker compose --env-file .env.staging up -d
+#   docker compose --env-file .env.prod    up -d
+# Project name, image tag, and host ports come from that env file, so the two
+# stacks get fully separate volumes/networks and never collide.
+
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      # Published on the LAN so DBeaver can connect. Distinct host port per stack.
+      - "${DB_HOST_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  app:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${APP_PORT}:8080"
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+
+networks:
+  internal:

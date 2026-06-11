@@ -41,6 +41,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
+// Apply any pending EF Core migrations on startup. CI applies them as an
+// explicit deploy step too; this is an idempotent safety net (no-op if already
+// applied).
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
+}
+
 app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
@@ -48,8 +56,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
+// Serve the bundled SPA (built frontend copied into wwwroot) and fall back to
+// index.html for client-side routes. API controllers are matched first; the
+// fallback only handles non-/api, non-file requests.
+app.UseStaticFiles();
 app.MapControllers();
+app.MapFallbackToFile("index.html");
 
 try
 {
