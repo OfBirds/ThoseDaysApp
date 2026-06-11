@@ -76,6 +76,7 @@ function AppContent() {
   const { user, logout } = useAuth();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [nextPeriod, setNextPeriod] = useState<{ startIso: string; daysUntil: number } | null>(null);
   const [, setLoading] = useState(true);
 
   useEffect(() => {
@@ -128,13 +129,19 @@ function AppContent() {
         </div>
       </header>
       <main className="app-main">
-        <Calendar cycles={cycles} onCommitted={fetchData} userId={user.id} />
+        <Calendar
+          cycles={cycles}
+          onCommitted={fetchData}
+          userId={user.id}
+          onNextPeriod={setNextPeriod}
+        />
       </main>
       {stats && (
         <StatusBar
           averageCycleLength={stats.averageCycleLength}
           averageInterval={stats.averageInterval}
           totalCycles={stats.totalCycles}
+          nextPeriodDays={nextPeriod?.daysUntil ?? null}
         />
       )}
       <footer className="app-footer">

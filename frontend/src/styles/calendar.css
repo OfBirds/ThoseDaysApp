@@ -98,12 +98,81 @@
   align-items: center;
 }
 
-.recalc-error {
-  background: #FEE;
+/* Message surface: a big "!" between the fields and the Recalculate button.
+   Space is always reserved (icon hidden when there's nothing to say) so the
+   controls row never shifts. Hover or click reveals the popover. */
+.recalc-msg {
+  position: relative;
+  width: 2.6rem;
+  height: 2.6rem;
+  align-self: flex-end;
+  flex-shrink: 0;
+}
+
+.recalc-msg-icon {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: transparent;
+  visibility: hidden;
+  padding: 0;
+}
+
+.recalc-msg.active .recalc-msg-icon {
+  visibility: visible;
+}
+
+.recalc-msg.active.error .recalc-msg-icon {
   color: var(--error);
-  padding: 0.6rem 1.5rem;
+  border-color: var(--error);
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+}
+
+.recalc-msg.active.warning .recalc-msg-icon {
+  color: var(--warning);
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+}
+
+/* The popped-out message — mirrors the old banner's left-border look. */
+.recalc-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.4rem);
+  z-index: 20;
+  width: max-content;
+  max-width: 340px;
+  padding: 0.6rem 0.85rem;
   font-size: 0.875rem;
+  line-height: 1.4;
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+  visibility: hidden;
+}
+
+.recalc-msg.active.error .recalc-popover {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 10%, var(--surface));
   border-left: 4px solid var(--error);
+}
+
+.recalc-msg.active.warning .recalc-popover {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
+  border-left: 4px solid var(--warning);
+}
+
+.recalc-msg.active:hover .recalc-popover,
+.recalc-msg.active.open .recalc-popover {
+  visibility: visible;
 }
 
 .calendar-body {
@@ -159,10 +228,39 @@
   border-bottom: 1px solid var(--border);
 }
 
-.calendar-header h2 {
+.calendar-title {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.calendar-header h2 {
   text-align: center;
   margin: 0;
+}
+
+.calendar-title .today-button {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  padding: 0.2rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.calendar-title .today-button:hover {
+  background: var(--primary);
+  color: white;
+  opacity: 1;
+}
+
+/* Hidden on the current month, but keeps its space so the header doesn't jump. */
+.calendar-title .today-button.is-hidden {
+  visibility: hidden;
 }
 
 .calendar-header button {
@@ -225,6 +323,23 @@
   cursor: default;
 }
 
+/* Today: accent ring (theme-constant orange) inside the cell border. */
+.calendar-day.is-today {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Days-until-next badge, lower-left of the next period's first day only. */
+.day-countdown {
+  position: absolute;
+  bottom: 0.2rem;
+  left: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--pred-next);
+}
+
 .day-number {
   font-size: 0.875rem;
   font-weight: 600;
@@ -246,10 +361,9 @@
   height: 1.65em;
 }
 
-.period-mark.actual { color: var(--period-actual); }
-.period-mark.tier-0 { color: var(--pred-next); }
-.period-mark.tier-1 { color: var(--pred-soon); }
-.period-mark.tier-2 { color: var(--pred-later); }
+.period-mark.actual { color: var(--period-actual); } /* saved — red */
+.period-mark.tier-0 { color: var(--pred-next); }     /* next predicted — orange */
+.period-mark.tier-1 { color: var(--pred-later); }    /* future predicted — khaki */
 
 .period-mark.actual {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));

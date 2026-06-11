@@ -8,6 +8,30 @@
   border-radius: 8px;
 }
 
+.status-next {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.status-next-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-light);
+}
+
+.status-next-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: 'Merriweather', serif;
+  color: var(--primary);
+}
+
 .status-bar-content {
   width: 100%;
 }

@@ -7,14 +7,15 @@
   --border: #E5E7EB;
   --success: #10B981;
   --error: #EF4444;
+  --warning: #B8860B; /* khaki/goldenrod — warnings, distinct from the red error */
   /* surfaces — referenced instead of hard-coded #FFF so the theme can flip them */
   --bg: #FFFFFF;
   --surface: #FFFFFF;
-  /* period/forecast symbol colors — darker on light theme for contrast */
+  /* period/forecast symbol colors — darker on light theme for contrast.
+     Red is reserved for actual/saved; predictions are orange (next) -> khaki (future). */
   --period-actual: #D32F2F;
-  --pred-next: #E64A19;
-  --pred-soon: #EF6C00;
-  --pred-later: #B8860B;
+  --pred-next: #EF6C00;  /* next predicted — orange */
+  --pred-later: #B8860B; /* future predicted — khaki */
 }
 
 [data-theme='dark'] {
@@ -24,11 +25,12 @@
   --border: #374151;
   --bg: #0F1422;
   --surface: #181E2E;
-  /* brand colors stay; only surfaces and text invert. Symbols keep the bright tiers. */
+  --warning: #FFD966; /* lighter khaki for contrast on dark */
+  /* brand colors stay; only surfaces and text invert. Actual = red, next =
+     orange, future = gold — all distinct on dark. */
   --period-actual: #ff6b6b;
-  --pred-next: #ff6b6b;
-  --pred-soon: #ffb86b;
-  --pred-later: #ffd966;
+  --pred-next: #ffb86b;  /* next predicted — orange */
+  --pred-later: #ffd966; /* future predicted — gold/khaki */
 }
 
 html {
