@@ -157,7 +157,8 @@ Mail-only credential.
    + version check, opted-in recipients, per-user best-effort send, records
    `last_notified_version`. Flow/idempotency verified (flag-off idle, announce,
    skip-on-restart).
-5. **Unsubscribe** endpoint + token.
+5. ✅ **Unsubscribe** (done): `GET /api/unsubscribe?token=…` flips
+   `NotifyReleases` off (200/404/400 verified).
 6. **Env wiring**: add the keys to `.env.*.example` and the real env files;
    `NOTIFY_ON_DEPLOY=false` on staging, `true` on prod.
 7. **DuckDNS + nginx** in front of prod; set `PUBLIC_BASE_URL` accordingly.
