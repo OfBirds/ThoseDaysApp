@@ -40,6 +40,15 @@ services:
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+      # Release-notification settings (see docs/notifications.md).
+      NOTIFY_ON_DEPLOY: ${NOTIFY_ON_DEPLOY}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_ACCEPT_ALL_CERTS: ${SMTP_ACCEPT_ALL_CERTS}
     ports:
       - "${APP_PORT}:8080"
     networks:

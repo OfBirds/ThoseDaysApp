@@ -159,8 +159,10 @@ Mail-only credential.
    skip-on-restart).
 5. ✅ **Unsubscribe** (done): `GET /api/unsubscribe?token=…` flips
    `NotifyReleases` off (200/404/400 verified).
-6. **Env wiring**: add the keys to `.env.*.example` and the real env files;
-   `NOTIFY_ON_DEPLOY=false` on staging, `true` on prod.
+6. ✅ **Env wiring** (done): compose `app` service passes
+   `NOTIFY_ON_DEPLOY`/`PUBLIC_BASE_URL`/`SMTP_*`; keys added to both
+   `.env.*.example`. Real `/opt/thosedays/.env.prod` on the server still needs the
+   keys + real `SMTP_PASS` (manual, alongside step 7).
 7. **DuckDNS + nginx** in front of prod; set `PUBLIC_BASE_URL` accordingly.
 8. Verify on staging (flag off → no mail, but `/api/version` correct), then tag a
    release and confirm exactly one email per user on prod.
