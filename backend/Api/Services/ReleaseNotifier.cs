@@ -47,8 +47,12 @@ public class ReleaseNotifier(
             .Select(u => new { u.Email, u.UnsubscribeToken })
             .ToListAsync(ct);
 
-        logger.LogInformation("Announcing {Version} to {Count} user(s).", version, recipients.Count);
+        logger.LogInformation(
+            "Release announcement starting for {Version}: {Recipients} opted-in user(s), link {Link}",
+            version, recipients.Count, baseUrl);
 
+        var sent = 0;
+        var failed = 0;
         foreach (var r in recipients)
         {
             var unsubscribe = $"{baseUrl}/api/unsubscribe?token={r.UnsubscribeToken}";
@@ -56,11 +60,16 @@ public class ReleaseNotifier(
             try
             {
                 await email.SendAsync(r.Email, subject, html, text, ct);
+                sent++;
+                logger.LogInformation(
+                    "Release email sent to {Recipient} for {Version}", r.Email, version);
             }
             catch (Exception ex)
             {
                 // Best-effort: log and keep going so one bad address can't block the rest.
-                logger.LogError(ex, "Failed to send release email to {Recipient}", r.Email);
+                failed++;
+                logger.LogError(ex,
+                    "Release email FAILED for {Recipient} on {Version}", r.Email, version);
             }
         }
 
@@ -71,7 +80,9 @@ public class ReleaseNotifier(
             setting.Value = version;
         await db.SaveChangesAsync(ct);
 
-        logger.LogInformation("Release announcement for {Version} complete.", version);
+        logger.LogInformation(
+            "Release announcement complete for {Version}: {Sent} sent, {Failed} failed of {Total}",
+            version, sent, failed, recipients.Count);
     }
 
     private static (string subject, string html, string text) BuildEmail(

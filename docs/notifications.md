@@ -124,6 +124,19 @@ Mail-only credential.
   run Tailscale, public exposure could be avoided entirely; chosen path is the
   public DuckDNS link so any device can just click through.)
 
+## 5b. Observability (Seq)
+
+The stack runs a [Seq](https://datalust.co/seq) service and the app ships
+structured logs to it (`SEQ_URL=http://seq`), so the release send is reviewable.
+The notifier emits, all tagged with `Version`:
+
+- `Release announcement starting … {Recipients} opted-in user(s), link {Link}`
+- per recipient: `Release email sent to {Recipient}` / `Release email FAILED …`
+- `Release announcement complete … {Sent} sent, {Failed} failed of {Total}`
+
+So in Seq you can filter by `Version` and see exactly who received the email and
+what failed. UI on the LAN at `SEQ_PORT` (staging `9133`, prod `9134`).
+
 ## 6. Data model changes (new migration)
 
 - `Users`: `notify_releases bool not null default true`, `unsubscribe_token uuid`.

@@ -6,17 +6,28 @@ using Serilog.Events;
 using Serilog.Formatting.Compact;
 
 // Rolling, structured (compact JSON) log file — one file per day, Information and up.
-Log.Logger = new LoggerConfiguration()
+// Also ships to Seq when SEQ_URL is set (deploy stacks); every event is tagged
+// with the app version so logs are filterable per release.
+var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL");
+var appVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "dev";
+
+var logConfig = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "ThoseDays")
+    .Enrich.WithProperty("Version", appVersion)
     .WriteTo.Console()
     .WriteTo.File(
         formatter: new CompactJsonFormatter(),
         path: "logs/log-.json",
         rollingInterval: RollingInterval.Day,
-        retainedFileCountLimit: 31)
-    .CreateLogger();
+        retainedFileCountLimit: 31);
+
+if (!string.IsNullOrWhiteSpace(seqUrl))
+    logConfig = logConfig.WriteTo.Seq(seqUrl);
+
+Log.Logger = logConfig.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -100,6 +100,10 @@ Services in each stack:
   from env (the backend already takes `DB_HOST` / `DB_PORT` / `DB_NAME` /
   `DB_USER` / `DB_PASSWORD`, see `backend/Api/Program.cs`). This is the one port
   exposed to the LAN per stack.
+- `seq` — [Seq](https://datalust.co/seq) log server for structured-log
+  monitoring. The app ships Serilog events to it (`SEQ_URL=http://seq`); the UI
+  is published on the LAN per stack (`SEQ_PORT`, staging `9133` / prod `9134`).
+  Auth is off (LAN-only); every event is tagged with `Application` + `Version`.
 
 Isolation is enforced by:
 
