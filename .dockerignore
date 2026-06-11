@@ -14,3 +14,4 @@ backend/Api/logs
 .claude
 docs
 *.md
+!RELEASE_NOTES.md
