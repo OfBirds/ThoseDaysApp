@@ -39,6 +39,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<ICycleService, CycleService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// SMTP from flat SMTP_* env keys (same style as DB_*); password stays in the env file.
+builder.Services.Configure<Api.Config.SmtpOptions>(o =>
+{
+    o.Host = builder.Configuration["SMTP_HOST"] ?? "";
+    o.Port = int.TryParse(builder.Configuration["SMTP_PORT"], out var p) ? p : 465;
+    o.User = builder.Configuration["SMTP_USER"] ?? "";
+    o.Password = builder.Configuration["SMTP_PASS"] ?? "";
+    o.From = builder.Configuration["SMTP_FROM"] ?? builder.Configuration["SMTP_USER"] ?? "";
+    o.AcceptAllCerts = string.Equals(builder.Configuration["SMTP_ACCEPT_ALL_CERTS"], "true",
+        StringComparison.OrdinalIgnoreCase);
+});
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+
 var app = builder.Build();
 
 // Apply any pending EF Core migrations on startup. CI applies them as an

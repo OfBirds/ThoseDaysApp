@@ -150,7 +150,9 @@ Mail-only credential.
 2. ✅ **Data model** (done): migration `AddNotificationsAndSettings` — `Users`
    `NotifyReleases` (default true) + `UnsubscribeToken` (`gen_random_uuid()`,
    backfills existing rows) + unique index; new `SystemSettings` key/value table.
-3. **Email service**: MailKit sender, config-bound, cert callback, async.
+3. ✅ **Email service** (done): MailKit `SmtpEmailSender` (`IEmailSender`),
+   `SmtpOptions` bound from `SMTP_*` env keys, port-based TLS (465→SslOnConnect),
+   accept-all-certs callback for SBB. Live send verified at deploy.
 4. **Startup notifier**: background task implementing the flow in §2.
 5. **Unsubscribe** endpoint + token.
 6. **Env wiring**: add the keys to `.env.*.example` and the real env files;
