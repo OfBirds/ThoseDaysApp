@@ -6,10 +6,14 @@ A progressive web app for tracking and predicting menstrual cycles using statist
 
 - **Track Cycles**: Log period start dates and duration
 - **Predict Future Periods**: Generates 15-cycle predictions based on average interval
-- **Calendar View**: Visual calendar with color-coded period marks
-- **Statistics**: View average cycle length and interval
+- **Calendar View**: Visual calendar with color-coded period marks, a marker for
+  today, a countdown on the next period's first day, and a "return to current
+  month" button
+- **Statistics**: Average cycle length/interval, plus a "next period in N days"
+  readout in the status bar
 - **Offline Support**: Works offline with cached data (PWA)
 - **Responsive Design**: Mobile-friendly design with touch support
+- **Light & Dark Themes**: Theme toggle; palette driven by CSS variables
 - **Authentication**: Basic auth with password hashing
 - **WCAG AA Compliant**: Accessible with proper color contrast and icons
 
@@ -134,11 +138,16 @@ npm run build --prefix frontend
 
 ## Color Scheme
 
-- **Primary**: #FF6B6B (Dark Orange) - Next predicted period
-- **Accent**: #FFB86B (Soft Orange) - Subsequent predictions
-- **Light**: #FFC966 (Pale Yellow) - Future predictions
-- **Background**: #F7F7F8 (Neutral)
-- **Text**: #1F2937 (Dark Gray)
+Period marks (red is reserved for real/saved data; predictions go orange → khaki):
+
+- **Actual / saved period**: red (`--period-actual`, #D32F2F light / #FF6B6B dark)
+- **Next predicted period**: orange (`--pred-next`, #EF6C00 light / #FFB86B dark)
+- **Future predicted periods**: khaki/gold (`--pred-later`, #B8860B light / #FFD966 dark)
+- **Today**: accent ring (`--accent`, #FFB86B, constant across themes)
+- **Warning** (out-of-range input): khaki (`--warning`); **Error**: red (`--error`)
+
+Brand/surface colors are CSS variables in `frontend/src/styles/index.css` with a
+`[data-theme='dark']` override, so both themes share one source of truth.
 
 ## Fonts
 
