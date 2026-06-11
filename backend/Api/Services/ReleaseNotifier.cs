@@ -19,6 +19,17 @@ public class ReleaseNotifier(
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        // Always check whether release notes are baked into the image, even on
+        // staging (where emails are off), so we can verify the Dockerfile COPY
+        // worked before pushing to prod.
+        var notesPath = Path.Combine(AppContext.BaseDirectory, "RELEASE_NOTES.md");
+        var releaseNotes = File.Exists(notesPath) ? await File.ReadAllTextAsync(notesPath, ct) : null;
+        if (!string.IsNullOrWhiteSpace(releaseNotes))
+            logger.LogInformation("Release notes found on startup ({Length} chars): {Notes}",
+                releaseNotes.Length, releaseNotes.Trim());
+        else
+            logger.LogInformation("No RELEASE_NOTES.md found on startup.");
+
         var enabled = string.Equals(config["NOTIFY_ON_DEPLOY"], "true",
             StringComparison.OrdinalIgnoreCase);
         var version = config["APP_VERSION"];
@@ -46,14 +57,6 @@ public class ReleaseNotifier(
             .Where(u => u.IsActive && u.NotifyReleases)
             .Select(u => new { u.Email, u.UnsubscribeToken })
             .ToListAsync(ct);
-
-        // Read release notes baked into the image. Missing/empty → fall back gracefully.
-        var notesPath = Path.Combine(AppContext.BaseDirectory, "RELEASE_NOTES.md");
-        var releaseNotes = File.Exists(notesPath) ? await File.ReadAllTextAsync(notesPath, ct) : null;
-        if (!string.IsNullOrWhiteSpace(releaseNotes))
-            logger.LogInformation("Release notes loaded ({Length} chars).", releaseNotes.Length);
-        else
-            logger.LogInformation("No release notes found; email will be plain.");
 
         logger.LogInformation(
             "Release announcement starting for {Version}: {Recipients} opted-in user(s), link {Link}",
