@@ -1,0 +1,158 @@
+# Release notifications — design
+
+> Status: **planning / draft**. No code yet. Captures the agreed design for
+> emailing registered users when a new version is released to prod.
+
+## Goal
+
+When a new version is deployed to **prod**, automatically email every registered
+(opted-in) user: "a new version of ThoseDays is out — check it at <link>". The
+behaviour is gated by a flag so staging never emails, and prod does. This is
+admin-controlled in the sense that flipping the flag (per environment) decides
+whether the broadcast happens; once on, it fires automatically on each new
+version.
+
+Two prerequisites drive everything: **versioning** (so "new version" is
+meaningful and we can avoid re-sending) and a **stable public address** (so the
+link in the email keeps working).
+
+## 1. Versioning
+
+Today there is no real versioning: backend has no version, frontend is a static
+`1.0.0`, no git tags, no `/version` endpoint. We add an **automatic** scheme — no
+manual tagging:
+
+- **You control `MAJOR.MINOR`, the pipeline auto-appends the patch.**
+  - A `VERSION` file at the repo root holds just `MAJOR.MINOR` (e.g. `1.0`). It's
+    the only thing edited by hand: bump to `1.1` for a new revision, `2.0` for a
+    new release.
+  - The pipeline computes the patch from **`github.run_number`** (GitHub's
+    built-in monotonic per-workflow counter) and assembles the full version:
+    `1.0.<run_number>` → e.g. `1.0.47`. No git tags, no write-back to the repo,
+    no state to manage.
+  - Patch is **non-resetting** (simple): bumping the minor gives `1.1.48`, not
+    `1.1.0`. Still unique and monotonic — fine as an idempotency key and for
+    "new version" messaging.
+- **Inject at build time** into the image:
+  - Backend: pass `-p:Version` / `-p:InformationalVersion` to `dotnet publish`
+    (via a Docker `ARG APP_VERSION`). Exposed at runtime through the assembly's
+    informational version.
+  - Frontend: a Vite `define` (e.g. `__APP_VERSION__`) from a build env var, so
+    the running client knows its own version.
+  - Image tag: add `:<version>` alongside the existing `:prod`/`:sha` tags.
+- **`GET /api/version`** returns `{ version, commit, builtAt }` — the canonical
+  way anything asks "what version is the server?".
+
+The version string is the **idempotency key** for notifications (below), which
+is why this has to exist first.
+
+## 2. The notification trigger
+
+**The app sends the emails itself, on startup** — not the pipeline. The app owns
+the user list and the email transport, and "app has started" already means
+"deploy + migrations succeeded", so startup is the natural post-deploy hook.
+
+### Flow (on application startup, in a background task)
+
+```
+if config.NOTIFY_ON_DEPLOY == true
+   and currentVersion != state.last_notified_version:
+       recipients = users where notify_releases == true
+       for each recipient: send release email (async, best-effort)
+       state.last_notified_version = currentVersion   # persist
+```
+
+- **Idempotent**: `last_notified_version` is stored in the DB, so restarts /
+  redeploys of the *same* version never re-send. Emails go out once per new
+  version.
+- **Gated**: staging runs with `NOTIFY_ON_DEPLOY=false`, so it exercises the
+  whole build/version path without ever emailing. Prod runs with `true`.
+- **Non-blocking**: runs in a background task (`IHostedService` /
+  `ApplicationStarted`), never blocking startup; a mail failure logs and does not
+  crash the app.
+- `last_notified_version` is set once the batch has been attempted, to avoid a
+  resend storm if one address fails. Per-recipient failures are logged for
+  manual follow-up (retry/queue can come later).
+
+## 3. Email transport
+
+SBB ISP mailbox over SMTP, via **MailKit** (modern .NET SMTP library; the legacy
+`SmtpClient` is deprecated).
+
+- Host/port: `smtp.sbb.rs:465`, implicit TLS → `SecureSocketOptions.SslOnConnect`.
+- SBB's cert may not chain cleanly ("accept all certs"), so a cert-validation
+  callback that accepts the known host will likely be needed.
+- Sending **as** `…@sbb.rs` through SBB's own SMTP means SPF/DKIM for `sbb.rs`
+  align (managed by SBB) — good deliverability, no domain of our own required.
+- Volume is trivial (a few/week), well under any ISP cap.
+
+### Config keys
+
+Non-secret (env files, committed as `.example`):
+
+| Key | Staging | Prod |
+|---|---|---|
+| `NOTIFY_ON_DEPLOY` | `false` | `true` |
+| `PUBLIC_BASE_URL` | `http://vm.example.lan:9123` | `https://app.example.com` |
+| `SMTP_HOST` | `smtp.sbb.rs` | `smtp.sbb.rs` |
+| `SMTP_PORT` | `465` | `465` |
+| `SMTP_FROM` / `SMTP_USER` | `…@sbb.rs` | `…@sbb.rs` |
+| `SMTP_ACCEPT_ALL_CERTS` | `true` | `true` |
+
+Secret (the SMTP password) lives **only** in `/opt/<app>/.env.prod` on the
+server, `chmod 600`, never committed — same handling as the DB password.
+Mail-only credential.
+
+## 4. Recipients & opt-out
+
+- Recipients = users with release notifications enabled.
+- Add to `Users`: `notify_releases bool default true` and an
+  `unsubscribe_token` (GUID) for one-click opt-out.
+- Email includes an **unsubscribe link**: `PUBLIC_BASE_URL/api/unsubscribe?token=…`
+  which flips `notify_releases` to false. Basic hygiene; keeps us off spam lists.
+
+## 5. Public address
+
+- The email link is built from `PUBLIC_BASE_URL` (config), never a hardcoded IP —
+  so internal IP changes don't break old links, and moving to a real domain later
+  is a one-line env change.
+- Prod is reached via **DuckDNS + nginx reverse proxy**:
+  `https://app.example.com` → nginx (TLS termination, Let's
+  Encrypt via DuckDNS DNS-01) → app container over plain HTTP on the LAN.
+- TLS at the edge, HTTP inside the LAN is the standard, fine arrangement.
+- Not going public/large — a handful of known users. (If they were all willing to
+  run Tailscale, public exposure could be avoided entirely; chosen path is the
+  public DuckDNS link so any device can just click through.)
+
+## 6. Data model changes (new migration)
+
+- `Users`: `notify_releases bool not null default true`, `unsubscribe_token uuid`.
+- New single-row `SystemSettings` (or `NotificationState`) table holding
+  `last_notified_version text`.
+
+## 7. Open decisions
+
+1. **Versioning** — DECIDED: `VERSION` file (`MAJOR.MINOR`) + auto patch from
+   `github.run_number`, non-resetting. No manual tags.
+2. **`last_notified_version` storage** — dedicated tiny table vs a general
+   key/value `SystemSettings`. Leaning key/value so future small settings reuse it.
+3. **Email body** — plain text vs simple HTML. Start with simple HTML + text
+   fallback.
+4. **Unsubscribe UX** — bare endpoint that flips the flag and returns a small
+   confirmation, vs a frontend page. Start with the endpoint.
+
+## 8. Implementation order
+
+1. ✅ **Versioning** (done): `VERSION` file; CI builds `MAJOR.MINOR.<run_number>`
+   and passes it via Dockerfile `ARG APP_VERSION`/`GIT_COMMIT`/`BUILD_TIME` →
+   backend `InformationalVersion` + `GET /api/version`, frontend `__APP_VERSION__`
+   define; image tagged `:<version>` too.
+2. **Data model**: migration for `Users` columns + `SystemSettings`.
+3. **Email service**: MailKit sender, config-bound, cert callback, async.
+4. **Startup notifier**: background task implementing the flow in §2.
+5. **Unsubscribe** endpoint + token.
+6. **Env wiring**: add the keys to `.env.*.example` and the real env files;
+   `NOTIFY_ON_DEPLOY=false` on staging, `true` on prod.
+7. **DuckDNS + nginx** in front of prod; set `PUBLIC_BASE_URL` accordingly.
+8. Verify on staging (flag off → no mail, but `/api/version` correct), then tag a
+   release and confirm exactly one email per user on prod.

@@ -34,6 +34,13 @@ ASP.NET serves the SPA (`UseStaticFiles()` + fallback to `index.html`) on the
 same origin as the API. So `/api` is just same-origin — **no nginx, no proxy
 config, no CORS**. One image, one app container per stack.
 
+**Versioning.** The version is `MAJOR.MINOR.<run_number>` — `MAJOR.MINOR` from the
+`VERSION` file at the repo root, the patch from `github.run_number`. CI passes it
+(plus git sha and build time) into the image via Docker build-args
+(`APP_VERSION`/`GIT_COMMIT`/`BUILD_TIME`), tags the image `:<version>` alongside
+`:staging`/`:prod`/`:<sha>`, and the app exposes it at `GET /api/version`. See
+[notifications.md](notifications.md) for how this drives release emails.
+
 Today `docker-compose.yml` only runs Postgres + pgAdmin for local dev. There is
 **no Dockerfile yet** — that's the first thing to build.
 
