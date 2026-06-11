@@ -51,6 +51,7 @@ builder.Services.Configure<Api.Config.SmtpOptions>(o =>
         StringComparison.OrdinalIgnoreCase);
 });
 builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
+builder.Services.AddHostedService<ReleaseNotifier>();
 
 var app = builder.Build();
 

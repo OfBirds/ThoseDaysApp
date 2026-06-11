@@ -153,7 +153,10 @@ Mail-only credential.
 3. ✅ **Email service** (done): MailKit `SmtpEmailSender` (`IEmailSender`),
    `SmtpOptions` bound from `SMTP_*` env keys, port-based TLS (465→SslOnConnect),
    accept-all-certs callback for SBB. Live send verified at deploy.
-4. **Startup notifier**: background task implementing the flow in §2.
+4. ✅ **Startup notifier** (done): `ReleaseNotifier` (`BackgroundService`) — flag
+   + version check, opted-in recipients, per-user best-effort send, records
+   `last_notified_version`. Flow/idempotency verified (flag-off idle, announce,
+   skip-on-restart).
 5. **Unsubscribe** endpoint + token.
 6. **Env wiring**: add the keys to `.env.*.example` and the real env files;
    `NOTIFY_ON_DEPLOY=false` on staging, `true` on prod.

@@ -1,0 +1,94 @@
+using Api.Data;
+using Microsoft.EntityFrameworkCore;
+
+namespace Api.Services;
+
+/// <summary>
+/// On startup, if NOTIFY_ON_DEPLOY is on and this is a version we haven't
+/// announced yet, emails every opted-in user that a new version is out. Runs
+/// once per process start; idempotent via the last_notified_version setting, so
+/// restarts/redeploys of the same version never re-send.
+/// </summary>
+public class ReleaseNotifier(
+    IServiceScopeFactory scopeFactory,
+    IEmailSender email,
+    IConfiguration config,
+    ILogger<ReleaseNotifier> logger) : BackgroundService
+{
+    private const string LastNotifiedKey = "last_notified_version";
+
+    protected override async Task ExecuteAsync(CancellationToken ct)
+    {
+        var enabled = string.Equals(config["NOTIFY_ON_DEPLOY"], "true",
+            StringComparison.OrdinalIgnoreCase);
+        var version = config["APP_VERSION"];
+
+        // Off on staging/local, and we never announce an unversioned dev build.
+        if (!enabled || string.IsNullOrWhiteSpace(version) || version == "dev")
+        {
+            logger.LogInformation(
+                "Release notifier idle (enabled={Enabled}, version={Version}).", enabled, version);
+            return;
+        }
+
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var setting = await db.SystemSettings.FindAsync([LastNotifiedKey], ct);
+        if (setting?.Value == version)
+        {
+            logger.LogInformation("Version {Version} already announced; skipping.", version);
+            return;
+        }
+
+        var baseUrl = (config["PUBLIC_BASE_URL"] ?? "").TrimEnd('/');
+        var recipients = await db.Users
+            .Where(u => u.IsActive && u.NotifyReleases)
+            .Select(u => new { u.Email, u.UnsubscribeToken })
+            .ToListAsync(ct);
+
+        logger.LogInformation("Announcing {Version} to {Count} user(s).", version, recipients.Count);
+
+        foreach (var r in recipients)
+        {
+            var unsubscribe = $"{baseUrl}/api/unsubscribe?token={r.UnsubscribeToken}";
+            var (subject, html, text) = BuildEmail(version, baseUrl, unsubscribe);
+            try
+            {
+                await email.SendAsync(r.Email, subject, html, text, ct);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort: log and keep going so one bad address can't block the rest.
+                logger.LogError(ex, "Failed to send release email to {Recipient}", r.Email);
+            }
+        }
+
+        // Record once the batch has been attempted so a restart doesn't re-send.
+        if (setting is null)
+            db.SystemSettings.Add(new() { Key = LastNotifiedKey, Value = version });
+        else
+            setting.Value = version;
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Release announcement for {Version} complete.", version);
+    }
+
+    private static (string subject, string html, string text) BuildEmail(
+        string version, string url, string unsubscribe)
+    {
+        var subject = $"ThoseDays — new version {version} is out";
+        var html = $"""
+            <p>A new version of <strong>ThoseDays</strong> ({version}) has been released.</p>
+            <p><a href="{url}">Open ThoseDays</a></p>
+            <hr>
+            <p style="font-size:12px;color:#888">
+              Don't want these emails? <a href="{unsubscribe}">Unsubscribe</a>.
+            </p>
+            """;
+        var text =
+            $"A new version of ThoseDays ({version}) has been released.\n{url}\n\n" +
+            $"Unsubscribe: {unsubscribe}";
+        return (subject, html, text);
+    }
+}
