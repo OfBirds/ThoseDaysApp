@@ -19,7 +19,8 @@ public class CyclesController(ICycleService cycleService) : ControllerBase
             DurationDays = c.DurationDays,
             CreatedAt = c.CreatedAt,
             Corrected = c.Corrected,
-            Auto = c.Auto
+            Auto = c.Auto,
+            PredictedStart = c.PredictedStart
         }).ToList();
 
         return Ok(responses);

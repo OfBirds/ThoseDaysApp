@@ -11,6 +11,12 @@ A progressive web app for tracking and predicting menstrual cycles using statist
   month" button
 - **Statistics**: Average cycle length/interval, plus a "next period in N days"
   readout in the status bar
+- **Statistics page**: A read-only `/stats` view with KPI cards, a cycle-length
+  line chart (typical-range band + mean), period-duration bars, a length
+  distribution histogram, a current-cycle progress ring, a year heatmap of period
+  days, a prediction-accuracy panel, and a recent-cycles list. Charts are
+  hand-rolled SVG (no chart library) and derive everything client-side from the
+  cycle list
 - **Offline Support**: Works offline with cached data (PWA)
 - **Responsive Design**: Mobile-friendly design with touch support
 - **Light & Dark Themes**: Theme toggle; palette driven by CSS variables
@@ -133,6 +139,9 @@ See [docs/testing.md](docs/testing.md) for what each suite covers and the CI gat
 - `duration_days` (int) - Period duration
 - `created_at` (timestamp) - Record creation date
 - `corrected` (bool) - Whether user has corrected this cycle
+- `auto` (bool) - Whether this cycle was auto-filled from an elapsed forecast
+- `predicted_start` (date, nullable) - For auto cycles, the originally forecast
+  start date; lets the stats page measure prediction accuracy after a correction
 
 ### Predictions Table
 - `id` (UUID) - Primary key

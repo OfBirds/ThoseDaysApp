@@ -1,0 +1,151 @@
+.stats-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1rem 1rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats-page h1 {
+  font-size: 1.6rem;
+}
+
+/* --- KPI cards --- */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.kpi-value {
+  font-family: 'Merriweather', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.kpi-label { font-size: 0.8rem; color: var(--text); }
+.kpi-sub { font-size: 0.72rem; color: var(--text-light); }
+
+/* --- Cards --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.card h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+}
+
+.card-hint {
+  font-size: 0.82rem;
+  color: var(--text-light);
+  margin-bottom: 0.75rem;
+}
+
+/* --- Charts (shared) --- */
+.chart { width: 100%; height: auto; display: block; }
+.chart-empty {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  padding: 1rem 0;
+  text-align: center;
+}
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-axis { fill: var(--text-light); font-size: 11px; }
+.chart-band { fill: var(--accent); opacity: 0.13; }
+.chart-mean { stroke: var(--text-light); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.7; }
+.chart-line { stroke: var(--period-actual); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart-dot { fill: var(--period-actual); }
+.chart-bar { fill: var(--pred-next); }
+.chart-hist { fill: var(--primary); }
+
+/* --- Ring --- */
+.ring { width: 160px; height: 160px; flex-shrink: 0; }
+.ring-track { stroke: var(--border); }
+.ring-progress { stroke: var(--primary); transition: stroke-dasharray 0.4s ease; }
+.ring-overdue { stroke: var(--pred-next); }
+.ring-day { fill: var(--text); font-family: 'Merriweather', serif; font-size: 34px; font-weight: 700; }
+.ring-sub { fill: var(--text-light); font-size: 12px; }
+
+.current-cycle-body {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+.current-cycle-note { color: var(--text); font-size: 0.95rem; flex: 1; min-width: 180px; }
+
+/* --- Heatmap --- */
+.heatmap { width: 100%; height: auto; }
+.heat-cell { fill: var(--neutral); stroke: var(--border); stroke-width: 0.5; }
+.heat-on { fill: var(--period-actual); stroke: none; }
+
+/* --- Error list & table --- */
+.error-list { list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.error-list li {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.err-late { color: var(--error); font-weight: 600; }
+.err-early { color: var(--warning); font-weight: 600; }
+
+.cycle-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.cycle-table th {
+  text-align: left;
+  color: var(--text-light);
+  font-weight: 600;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.cycle-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.badge-logged { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); }
+.badge-auto { background: color-mix(in srgb, var(--text-light) 22%, transparent); color: var(--text-light); }
+.badge-corrected { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--warning); }
+
+/* --- Nav --- */
+.app-nav { display: flex; gap: 0.25rem; }
+.nav-link {
+  color: var(--text-light);
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.nav-link.active { color: var(--primary); background: var(--neutral); }
+
+@media (max-width: 520px) {
+  .current-cycle-body { justify-content: center; text-align: center; }
+}

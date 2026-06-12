@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { getFontScale, saveFontScale } from './lib/storage';
@@ -6,6 +7,7 @@ import Calendar from './components/Calendar';
 import StatusBar from './components/StatusBar';
 import BloodDropIcon from './components/BloodDropIcon';
 import LoginPage from './pages/LoginPage';
+import StatsPage from './pages/StatsPage';
 import './styles/app.css';
 
 const FONT_MIN = 40;
@@ -122,6 +124,10 @@ function AppContent() {
     <div className="app">
       <header className="app-header">
         <FontSizeControl />
+        <nav className="app-nav">
+          <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>Calendar</NavLink>
+          <NavLink to="/stats" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>Statistics</NavLink>
+        </nav>
         <div className="app-header-right">
           <span className="app-header-email">{user.email}</span>
           <ThemeToggle />
@@ -129,21 +135,31 @@ function AppContent() {
         </div>
       </header>
       <main className="app-main">
-        <Calendar
-          cycles={cycles}
-          onCommitted={fetchData}
-          userId={user.id}
-          onNextPeriod={setNextPeriod}
-        />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <Calendar
+                  cycles={cycles}
+                  onCommitted={fetchData}
+                  userId={user.id}
+                  onNextPeriod={setNextPeriod}
+                />
+                {stats && (
+                  <StatusBar
+                    averageCycleLength={stats.averageCycleLength}
+                    averageInterval={stats.averageInterval}
+                    totalCycles={stats.totalCycles}
+                    nextPeriodDays={nextPeriod?.daysUntil ?? null}
+                  />
+                )}
+              </>
+            }
+          />
+          <Route path="/stats" element={<StatsPage />} />
+        </Routes>
       </main>
-      {stats && (
-        <StatusBar
-          averageCycleLength={stats.averageCycleLength}
-          averageInterval={stats.averageInterval}
-          totalCycles={stats.totalCycles}
-          nextPeriodDays={nextPeriod?.daysUntil ?? null}
-        />
-      )}
       <footer className="app-footer">
         <BloodDropIcon size={16} />
         <span className="app-brand">ThoseDaysApp</span>
@@ -160,7 +176,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppContent />
+        <BrowserRouter>
+          <AppContent />
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   );

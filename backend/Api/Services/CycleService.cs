@@ -178,7 +178,8 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
                 UserId = userId,
                 StartDate = DateTime.SpecifyKind(p.PredictedStart.Date, DateTimeKind.Utc),
                 DurationDays = p.PredictedDuration,
-                Auto = true
+                Auto = true,
+                PredictedStart = DateTime.SpecifyKind(p.PredictedStart.Date, DateTimeKind.Utc)
             });
         }
         context.Predictions.RemoveRange(elapsed);

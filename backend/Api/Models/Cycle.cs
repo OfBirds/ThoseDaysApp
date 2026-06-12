@@ -16,5 +16,13 @@ public class Cycle
     /// </summary>
     public bool Auto { get; set; } = false;
 
+    /// <summary>
+    /// For auto-filled cycles: the date that was originally forecast for this period,
+    /// preserved when the forecast became real. Lets the stats page measure how far
+    /// predictions landed from reality once the user corrects an entry. Null for
+    /// user-logged cycles that never came from a prediction.
+    /// </summary>
+    public DateTime? PredictedStart { get; set; }
+
     public User? User { get; set; }
 }

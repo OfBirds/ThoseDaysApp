@@ -20,6 +20,7 @@ public class CycleResponse
     public DateTime CreatedAt { get; set; }
     public bool Corrected { get; set; }
     public bool Auto { get; set; }
+    public DateTime? PredictedStart { get; set; }
 }
 
 public class PredictionResponse
