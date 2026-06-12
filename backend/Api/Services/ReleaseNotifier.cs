@@ -96,7 +96,7 @@ public class ReleaseNotifier(
             version, sent, failed, recipients.Count);
     }
 
-    private static (string subject, string html, string text) BuildEmail(
+    internal static (string subject, string html, string text) BuildEmail(
         string version, string url, string unsubscribe, string? releaseNotes)
     {
         var subject = $"ThoseDays — new version {version} is out";

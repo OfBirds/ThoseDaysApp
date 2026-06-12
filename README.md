@@ -87,6 +87,19 @@ dotnet publish backend/Api -c Release
 npm run build --prefix frontend
 ```
 
+## Testing
+
+```bash
+# Backend (xUnit + EF Core InMemory)
+dotnet test backend/ThoseDays.slnx -c Release
+
+# Frontend (Vitest + Testing Library)
+npm ci --prefix frontend
+npm test --prefix frontend -- --run
+```
+
+See [docs/testing.md](docs/testing.md) for what each suite covers and the CI gate.
+
 ## API Endpoints
 
 ### Authentication

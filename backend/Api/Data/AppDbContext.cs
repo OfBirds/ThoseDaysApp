@@ -5,10 +5,10 @@ namespace Api.Data;
 
 public class AppDbContext : DbContext
 {
-    public required DbSet<User> Users { get; set; }
-    public required DbSet<Cycle> Cycles { get; set; }
-    public required DbSet<Prediction> Predictions { get; set; }
-    public required DbSet<SystemSetting> SystemSettings { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<Cycle> Cycles { get; set; }
+    public DbSet<Prediction> Predictions { get; set; }
+    public DbSet<SystemSetting> SystemSettings { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {

@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
-import { getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, Draft } from '../lib/storage';
+import { getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, type Draft } from '../lib/storage';
+import {
+  isoDate, addDaysIso, daysBetween, spanDays, groupPeriods,
+  computeAverages, findNextPrediction, predictionTier,
+  isOutOfRange, findFutureDays, type RecalcConfig
+} from '../lib/predictions';
 
 interface Cycle {
   id: string;
@@ -17,17 +22,6 @@ interface Prediction {
   predictedStart: string;
   predictedDuration: number;
   confidence: number;
-}
-
-interface RecalcConfig {
-  weights: number[];
-  tailWeight: number;
-  defaultCycleLength: number;
-  defaultPeriodDuration: number;
-  cycleLengthMin: number;
-  cycleLengthMax: number;
-  periodDurationMin: number;
-  periodDurationMax: number;
 }
 
 interface NextPeriod {
@@ -53,77 +47,10 @@ const DEFAULT_CONFIG: RecalcConfig = {
   periodDurationMax: 10
 };
 
-// --- date helpers (string-based to avoid timezone drift) ---
-const isoDate = (date: Date) => {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-};
-
-const addDaysIso = (iso: string, n: number) => {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
-};
-
-const daysBetween = (a: string, b: string) =>
-  Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
-
-// Expand cycles/predictions (start + duration) into the set of ISO day strings.
-function spanDays(startIso: string, duration: number): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < Math.max(1, duration); i++) out.push(addDaysIso(startIso, i));
-  return out;
-}
-
 function cyclesToDays(cycles: Cycle[]): string[] {
   const set = new Set<string>();
   cycles.forEach(c => spanDays(c.startDate.slice(0, 10), c.durationDays).forEach(d => set.add(d)));
   return [...set].sort();
-}
-
-// Collapse painted days into consecutive-day periods. Mirrors the backend.
-function groupPeriods(days: string[]): { start: string; length: number }[] {
-  const sorted = [...new Set(days)].sort();
-  const periods: { start: string; length: number }[] = [];
-  let runStart: string | null = null;
-  let prev: string | null = null;
-  let len = 0;
-  for (const d of sorted) {
-    if (runStart === null) { runStart = d; len = 1; }
-    else if (d === addDaysIso(prev!, 1)) { len++; }
-    else { periods.push({ start: runStart, length: len }); runStart = d; len = 1; }
-    prev = d;
-  }
-  if (runStart !== null) periods.push({ start: runStart, length: len });
-  return periods;
-}
-
-// Recent-favored weighted mean, rounded. Values newest → oldest. Mirrors the backend.
-function weightedAvg(valuesNewestFirst: number[], weights: number[], tailWeight: number, fallback: number) {
-  if (valuesNewestFirst.length === 0) return fallback;
-  let ws = 0, wt = 0;
-  for (let i = 0; i < valuesNewestFirst.length; i++) {
-    const w = i < weights.length ? weights[i] : tailWeight;
-    ws += valuesNewestFirst[i] * w;
-    wt += w;
-  }
-  return wt > 0 ? Math.round(ws / wt) : fallback;
-}
-
-function computeAverages(days: string[], config: RecalcConfig) {
-  const periods = groupPeriods(days);
-  if (periods.length === 0) {
-    return { cycleLength: config.defaultCycleLength, periodDuration: config.defaultPeriodDuration };
-  }
-  const durations: number[] = [];
-  for (let i = periods.length - 1; i >= 0; i--) durations.push(periods[i].length);
-  const intervals: number[] = [];
-  for (let i = periods.length - 1; i >= 1; i--) intervals.push(daysBetween(periods[i - 1].start, periods[i].start));
-  return {
-    cycleLength: weightedAvg(intervals, config.weights, config.tailWeight, config.defaultCycleLength),
-    periodDuration: weightedAvg(durations, config.weights, config.tailWeight, config.defaultPeriodDuration)
-  };
 }
 
 function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) {
@@ -144,15 +71,11 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   // Days that came from auto-filled (elapsed-forecast) cycles, for the marker.
   const autoDays = new Set(cyclesToDays(cycles.filter(c => c.auto)));
 
-  // Today (string-based, no tz drift) and the next upcoming predicted period:
-  // the soonest forecast whose start is today or later.
+  // Today and next prediction — now using findNextPrediction from predictions.ts.
   const todayIso = isoDate(new Date());
-  const nextStartIso =
-    predictions
-      .map(p => p.predictedStart.slice(0, 10))
-      .filter(s => s >= todayIso)
-      .sort()[0] ?? null;
-  const daysUntilNext = nextStartIso ? daysBetween(todayIso, nextStartIso) : null;
+  const nextPeriod = findNextPrediction(predictions, todayIso);
+  const nextStartIso = nextPeriod?.startIso ?? null;
+  const daysUntilNext = nextPeriod?.daysUntil ?? null;
 
   // Surface the next-period info to the parent (for the status bar).
   useEffect(() => {
@@ -228,20 +151,16 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     setDraft(prev => ({ ...prev, [key]: value, dirty: true }));
   };
 
-  // --- live validation: recomputed every render, so the "!" message updates as
-  // you paint days / edit fields and clears itself once the problem is fixed. ---
-  const futureCutoff = addDaysIso(todayIso, 3);
-  const tooFarDays = draft.days.filter(d => d > futureCutoff).sort();
-  const outOfRange =
-    !autoUpdate &&
-    (draft.cycleLength < config.cycleLengthMin || draft.cycleLength > config.cycleLengthMax ||
-     draft.periodDuration < config.periodDurationMin || draft.periodDuration > config.periodDurationMax);
+  // --- live validation: uses predictions.ts helpers ---
+  const tooFarDays = findFutureDays(draft.days, todayIso, 3);
+  const outOfRange = !autoUpdate && isOutOfRange(draft.cycleLength, draft.periodDuration, config);
+
   const activeMessage: { text: string; severity: 'error' | 'warning' } | null = recalcError
     ? { text: recalcError, severity: 'error' }
     : tooFarDays.length > 0
     ? {
         text:
-          `Can't save periods more than 3 days in the future (through ${futureCutoff}). ` +
+          `Can't save periods more than 3 days in the future (through ${addDaysIso(todayIso, 3)}). ` +
           `Remove: ${tooFarDays.join(', ')}.`,
         severity: 'error'
       }
@@ -256,8 +175,6 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     : null;
 
   const handleRecalculate = async () => {
-    // tooFarDays / out-of-range show live via the "!" message; only the hard
-    // future-dates error blocks the save.
     if (tooFarDays.length > 0) return;
     setRecalcError('');
     setRecalculating(true);
@@ -293,10 +210,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
 
-  const predictionIndexFor = (iso: string) =>
-    predictions.findIndex(p => spanDays(p.predictedStart.slice(0, 10), p.predictedDuration).includes(iso));
-
-  // Two tiers only: the next period (orange) vs every later one (khaki).
+  // Use predictionTier from predictions.ts.
   const tierClass = (index: number) => (index === 0 ? 'tier-0' : 'tier-1');
 
   const renderDays = () => {
@@ -310,7 +224,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       const iso = isoDate(date);
       const isActual = draft.days.includes(iso);
       const isAuto = isActual && autoDays.has(iso);
-      const predIndex = isActual ? -1 : predictionIndexFor(iso);
+      const predTier = isActual ? -1 : predictionTier(iso, predictions);
       const isToday = iso === todayIso;
       const isNextStart = iso === nextStartIso;
 
@@ -335,8 +249,8 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
               {isAuto && <span className="calc-badge" title="Auto-filled">✎</span>}
             </div>
           )}
-          {predIndex >= 0 && (
-            <div className={`period-mark predicted ${tierClass(predIndex)}`}>
+          {predTier >= 0 && (
+            <div className={`period-mark predicted ${tierClass(predTier)}`}>
               <BloodDropIcon />
               <span className="calc-badge" title="Calculated">∿</span>
             </div>
@@ -382,8 +296,6 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
               <span className="recalc-unit">days</span>
             </div>
           </div>
-          {/* Big "!" between the fields and the button; space reserved so the row
-              never shifts. Hover or click pops the message out. */}
           <div
             className={`recalc-msg${activeMessage ? ` active ${activeMessage.severity}` : ''}${msgOpen ? ' open' : ''}`}
             onMouseLeave={() => setMsgOpen(false)}
@@ -420,7 +332,6 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
         </button>
         <div className="calendar-title">
           <h2>{monthName}</h2>
-          {/* Always rendered so the header height never shifts; just hidden on the current month. */}
           <button
             className={`today-button${isCurrentMonth ? ' is-hidden' : ''}`}
             onClick={() => setCurrentMonth(new Date())}

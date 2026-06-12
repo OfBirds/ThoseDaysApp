@@ -225,7 +225,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
     }
 
     /// <summary>Weighted cycle length (interval) and period duration from the actuals.</summary>
-    private (int cycleLength, int periodDuration) ComputeAverages(List<(DateTime Start, int Length)> periods)
+    internal (int cycleLength, int periodDuration) ComputeAverages(List<(DateTime Start, int Length)> periods)
     {
         if (periods.Count == 0)
             return (config.DefaultCycleLength, config.DefaultPeriodDuration);
@@ -246,7 +246,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
     }
 
     /// <summary>Recent-favored weighted mean, rounded. Values ordered newest → oldest.</summary>
-    private int WeightedAverage(List<int> valuesNewestFirst, int fallback)
+    internal int WeightedAverage(List<int> valuesNewestFirst, int fallback)
     {
         if (valuesNewestFirst.Count == 0)
             return fallback;
@@ -275,7 +275,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
     }
 
     /// <summary>Collapse a set of individual days into consecutive-day periods.</summary>
-    private static List<(DateTime Start, int Length)> GroupDaysIntoPeriods(IEnumerable<DateTime> days)
+    internal static List<(DateTime Start, int Length)> GroupDaysIntoPeriods(IEnumerable<DateTime> days)
     {
         var sorted = new SortedSet<DateTime>(days.Select(d => d.Date));
 
