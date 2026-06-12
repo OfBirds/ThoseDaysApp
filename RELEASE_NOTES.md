@@ -1,5 +1,10 @@
 ### What's new
 
+- **Statistics page** — a new Statistics section shows your cycle history as charts: average length, interval trends, a heatmap, and how accurate the predictions have been
+- **Under the hood** — all underlying frameworks and libraries updated to their latest versions for better security, performance, and long-term support
+
+### Previously
+
 - **Today marker** — the current date is highlighted with an orange ring on the calendar
 - **Countdown badge** — the next period's first day shows a countdown (e.g. "5d")
 - **Next period readout** — the status bar now shows "Next period — in N days"
