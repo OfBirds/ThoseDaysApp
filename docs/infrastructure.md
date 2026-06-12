@@ -24,9 +24,9 @@ Wiping or breaking staging can never touch prod.
 
 The app is three pieces (see [README](../README.md)):
 
-- **backend** — ASP.NET Core (.NET 10) Web API, talks to Postgres via EF Core.
-- **frontend** — React 18 + Vite, built to static files.
-- **database** — PostgreSQL 15.
+- **backend** — ASP.NET Core Web API, talks to Postgres via EF Core.
+- **frontend** — React + Vite, built to static files.
+- **database** — PostgreSQL.
 
 The frontend and backend ship as **one image**: a multi-stage Docker build
 compiles the Vite app and copies `dist/` into the backend's `wwwroot/`, and
