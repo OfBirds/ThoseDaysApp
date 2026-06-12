@@ -1,6 +1,9 @@
 using Api.Data;
 using Api.Services;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -32,6 +35,30 @@ Log.Logger = logConfig.CreateLogger();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
+
+// Traces → Seq via OTLP. Endpoint is either explicit (OTEL_EXPORTER_OTLP_ENDPOINT)
+// or derived from SEQ_URL (Seq listens for OTLP on port 5341).
+var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
+if (string.IsNullOrWhiteSpace(otlpEndpoint) && !string.IsNullOrWhiteSpace(seqUrl))
+{
+    var seqUri = new Uri(seqUrl);
+    // Full signal path: the exporter uses a programmatic Endpoint as-is and
+    // does not append /v1/traces (it only does that for the env-var form).
+    otlpEndpoint = $"{seqUri.Scheme}://{seqUri.Host}:5341/ingest/otlp/v1/traces";
+}
+
+if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+{
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(r => r.AddService("ThoseDays", serviceVersion: appVersion))
+        .WithTracing(tracing => tracing
+            .AddAspNetCoreInstrumentation()
+            .AddOtlpExporter(o =>
+            {
+                o.Endpoint = new Uri(otlpEndpoint);
+                o.Protocol = OtlpExportProtocol.HttpProtobuf;
+            }));
+}
 
 builder.Services.Configure<Api.Config.RecalcConfig>(builder.Configuration.GetSection("Recalc"));
 
