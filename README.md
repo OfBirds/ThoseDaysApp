@@ -126,6 +126,25 @@ npm test --prefix frontend -- --run
 
 See [docs/testing.md](docs/testing.md) for what each suite covers and the CI gate.
 
+## Documentation
+
+Deeper docs live in [`docs/`](docs/):
+
+**Operations**
+
+- [infrastructure.md](docs/infrastructure.md) — CI/CD and self-hosted staging/prod setup
+- [deploy-runbook.md](docs/deploy-runbook.md) — one-time homelab VM setup for auto-deploy
+- [testing.md](docs/testing.md) — what each test suite covers and the CI gate
+
+**Feature design** (planning drafts — not all implemented yet)
+
+- [recalc-spec.md](docs/recalc-spec.md) — the recalculation / draft-vs-committed model
+- [notifications.md](docs/notifications.md) — release-notification emails (versioning + delivery)
+- [ui-updates.md](docs/ui-updates.md) — calendar today marker, countdown, return-to-month
+- [period-reminders.md](docs/period-reminders.md) — opt-in emails before a predicted period
+- [data-export-import.md](docs/data-export-import.md) — export, reviewed-patch import, and server backups
+- [prediction-confidence.md](docs/prediction-confidence.md) — variability-based confidence and a predicted-date range
+
 ## API Endpoints
 
 ### Authentication
