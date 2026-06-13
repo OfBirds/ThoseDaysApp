@@ -5,7 +5,7 @@ import { getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, type Draft } from '
 import {
   isoDate, addDaysIso, daysBetween, spanDays, groupPeriods,
   computeAverages, findNextPrediction, predictionTier,
-  isOutOfRange, findFutureDays, type RecalcConfig
+  isOutOfRange, findFutureDays, stdDevOf, predictionWindow, type RecalcConfig
 } from '../lib/predictions';
 
 interface Cycle {
@@ -27,7 +27,11 @@ interface Prediction {
 interface NextPeriod {
   startIso: string;
   daysUntil: number;
+  rangeLabel: string | null;
 }
+
+const SHORT_DATE = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 
 interface CalendarProps {
   cycles: Cycle[];
@@ -44,7 +48,11 @@ const DEFAULT_CONFIG: RecalcConfig = {
   cycleLengthMin: 21,
   cycleLengthMax: 35,
   periodDurationMin: 2,
-  periodDurationMax: 10
+  periodDurationMax: 10,
+  confidenceFloor: 0.3,
+  confidenceNominal: 0.7,
+  confidenceMinIntervals: 2,
+  bandK: 1
 };
 
 function cyclesToDays(cycles: Cycle[]): string[] {
@@ -77,14 +85,30 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   const nextStartIso = nextPeriod?.startIso ?? null;
   const daysUntilNext = nextPeriod?.daysUntil ?? null;
 
+  // Soft range around the next predicted start, from how regular recent cycles are.
+  // Only shown when the spread is wide enough to be worth mentioning (> 1 day).
+  const committedDays = cyclesToDays(cycles);
+  const committedIntervals = (() => {
+    const periods = groupPeriods(committedDays);
+    const out: number[] = [];
+    for (let i = 1; i < periods.length; i++) out.push(daysBetween(periods[i - 1].start, periods[i].start));
+    return out;
+  })();
+  const nextRangeLabel = (() => {
+    if (!nextStartIso) return null;
+    const sigma = stdDevOf(committedIntervals);
+    const { earliest, latest, halfWidth } = predictionWindow(nextStartIso, 1, sigma, config);
+    return halfWidth >= 2 ? `${SHORT_DATE(earliest)} – ${SHORT_DATE(latest)}` : null;
+  })();
+
   // Surface the next-period info to the parent (for the status bar).
   useEffect(() => {
     onNextPeriod?.(
       nextStartIso && daysUntilNext !== null
-        ? { startIso: nextStartIso, daysUntil: daysUntilNext }
+        ? { startIso: nextStartIso, daysUntil: daysUntilNext, rangeLabel: nextRangeLabel }
         : null
     );
-  }, [nextStartIso, daysUntilNext, onNextPeriod]);
+  }, [nextStartIso, daysUntilNext, nextRangeLabel, onNextPeriod]);
 
   const fetchPredictions = useCallback(async () => {
     try {

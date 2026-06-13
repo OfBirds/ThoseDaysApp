@@ -66,6 +66,10 @@ export interface RecalcConfig {
   cycleLengthMax: number;
   periodDurationMin: number;
   periodDurationMax: number;
+  confidenceFloor: number;
+  confidenceNominal: number;
+  confidenceMinIntervals: number;
+  bandK: number;
 }
 
 export function computeAverages(days: string[], config: RecalcConfig) {
@@ -134,4 +138,44 @@ export function isOutOfRange(
 export function findFutureDays(days: string[], todayIso: string, maxFutureDays: number): string[] {
   const cutoff = addDaysIso(todayIso, maxFutureDays);
   return days.filter((d) => d > cutoff).sort();
+}
+
+// --- Prediction confidence & range (mirror of the backend formula) ---
+
+/** Population standard deviation. */
+export function stdDevOf(values: number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+/**
+ * Confidence in the forecast from how regular recent intervals have been.
+ * confidence = clamp(1 - sigma/mu, floor, 1); thin history → nominal.
+ * Mirrors CycleService.ComputeConfidence so the UI and backend agree.
+ */
+export function predictionConfidence(intervals: number[], mu: number, config: RecalcConfig): number {
+  if (intervals.length < config.confidenceMinIntervals) return config.confidenceNominal;
+  const safeMu = mu > 0 ? mu : config.defaultCycleLength;
+  const raw = 1 - stdDevOf(intervals) / safeMu;
+  return Math.min(1, Math.max(config.confidenceFloor, raw));
+}
+
+/**
+ * Window around the Nth-ahead predicted start: ± k*sigma*sqrt(horizon) days,
+ * widening the further out the prediction is. horizon is 1-based.
+ */
+export function predictionWindow(
+  startIso: string,
+  horizon: number,
+  sigma: number,
+  config: RecalcConfig
+): { earliest: string; latest: string; halfWidth: number } {
+  const halfWidth = Math.round(config.bandK * sigma * Math.sqrt(Math.max(1, horizon)));
+  return {
+    earliest: addDaysIso(startIso, -halfWidth),
+    latest: addDaysIso(startIso, halfWidth),
+    halfWidth,
+  };
 }

@@ -79,7 +79,7 @@ function AppContent() {
   const { user, logout } = useAuth();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [nextPeriod, setNextPeriod] = useState<{ startIso: string; daysUntil: number } | null>(null);
+  const [nextPeriod, setNextPeriod] = useState<{ startIso: string; daysUntil: number; rangeLabel: string | null } | null>(null);
   const [, setLoading] = useState(true);
 
   useEffect(() => {
@@ -154,6 +154,7 @@ function AppContent() {
                     averageInterval={stats.averageInterval}
                     totalCycles={stats.totalCycles}
                     nextPeriodDays={nextPeriod?.daysUntil ?? null}
+                    nextPeriodRange={nextPeriod?.rangeLabel ?? null}
                   />
                 )}
               </>

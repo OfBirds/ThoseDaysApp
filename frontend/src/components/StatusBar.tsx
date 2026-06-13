@@ -5,6 +5,7 @@ interface StatusBarProps {
   averageInterval: number;
   totalCycles: number;
   nextPeriodDays: number | null;
+  nextPeriodRange?: string | null;
 }
 
 function formatNext(days: number | null): string {
@@ -13,12 +14,20 @@ function formatNext(days: number | null): string {
   return `in ${days} day${days === 1 ? '' : 's'}`;
 }
 
-function StatusBar({ averageCycleLength, averageInterval, totalCycles, nextPeriodDays }: StatusBarProps) {
+function StatusBar({ averageCycleLength, averageInterval, totalCycles, nextPeriodDays, nextPeriodRange }: StatusBarProps) {
   return (
     <div className="status-bar">
       <div className="status-next">
         <span className="status-next-label">Next period</span>
         <span className="status-next-value">{formatNext(nextPeriodDays)}</span>
+        {nextPeriodDays !== null && nextPeriodRange && (
+          <span
+            className="status-next-range"
+            title="Your cycles vary, so the date could land a little earlier or later — this is the likely window."
+          >
+            {nextPeriodRange}
+          </span>
+        )}
       </div>
       <div className="status-bar-content">
         <h2 className="status-title">Past analysis</h2>

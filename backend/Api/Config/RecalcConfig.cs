@@ -33,4 +33,27 @@ public class RecalcConfig
 
     /// <summary>How many future periods to project.</summary>
     public int ForecastCount { get; set; } = 15;
+
+    // --- Prediction confidence / range -------------------------------------------
+
+    /// <summary>
+    /// Lowest confidence we ever display, so an erratic history reads as "we're not
+    /// sure" rather than "0%".
+    /// </summary>
+    public double ConfidenceFloor { get; set; } = 0.3;
+
+    /// <summary>
+    /// Confidence used when there isn't enough history to measure spread
+    /// (fewer than <see cref="ConfidenceMinIntervals"/> intervals).
+    /// </summary>
+    public double ConfidenceNominal { get; set; } = 0.7;
+
+    /// <summary>Minimum number of intervals before we trust a spread-based confidence.</summary>
+    public int ConfidenceMinIntervals { get; set; } = 2;
+
+    /// <summary>
+    /// Multiplier on the interval std-dev for the predicted-date window
+    /// (mu*N ± k*sigma*sqrt(N)). Consumed client-side; served via /api/config.
+    /// </summary>
+    public double BandK { get; set; } = 1.0;
 }

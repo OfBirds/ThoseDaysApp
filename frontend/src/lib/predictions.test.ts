@@ -4,6 +4,7 @@ import {
   groupPeriods, weightedAvg, computeAverages,
   findNextPrediction, predictionTier,
   isOutOfRange, findFutureDays,
+  stdDevOf, predictionConfidence, predictionWindow,
   type RecalcConfig,
 } from '../lib/predictions';
 
@@ -16,6 +17,10 @@ const TEST_CONFIG: RecalcConfig = {
   cycleLengthMax: 35,
   periodDurationMin: 2,
   periodDurationMax: 10,
+  confidenceFloor: 0.3,
+  confidenceNominal: 0.7,
+  confidenceMinIntervals: 2,
+  bandK: 1,
 };
 
 describe('predictions', () => {
@@ -183,6 +188,53 @@ describe('predictions', () => {
       const days = ['2025-06-01', '2025-06-02'];
       const result = findFutureDays(days, '2025-06-01', 3);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('stdDevOf', () => {
+    it('is zero for fewer than two or identical values', () => {
+      expect(stdDevOf([])).toBe(0);
+      expect(stdDevOf([28])).toBe(0);
+      expect(stdDevOf([28, 28, 28])).toBe(0);
+    });
+
+    it('matches a known spread', () => {
+      // 10, 50 → mean 30, variance 400, stddev 20
+      expect(stdDevOf([10, 50])).toBeCloseTo(20, 3);
+    });
+  });
+
+  describe('predictionConfidence', () => {
+    it('is high (1.0) for perfectly regular intervals', () => {
+      expect(predictionConfidence([28, 28, 28], 28, TEST_CONFIG)).toBeCloseTo(1, 3);
+    });
+
+    it('clamps to the floor for very erratic intervals', () => {
+      // 5, 55 → sigma 25, mu 30 → 1 - 25/30 = 0.167 → floor 0.3
+      expect(predictionConfidence([5, 55], 30, TEST_CONFIG)).toBeCloseTo(0.3, 3);
+    });
+
+    it('falls back to nominal with thin history', () => {
+      expect(predictionConfidence([28], 28, TEST_CONFIG)).toBe(0.7);
+      expect(predictionConfidence([], 28, TEST_CONFIG)).toBe(0.7);
+    });
+  });
+
+  describe('predictionWindow', () => {
+    it('has zero width when there is no spread', () => {
+      const w = predictionWindow('2025-06-15', 1, 0, TEST_CONFIG);
+      expect(w.halfWidth).toBe(0);
+      expect(w.earliest).toBe('2025-06-15');
+      expect(w.latest).toBe('2025-06-15');
+    });
+
+    it('widens with the forecast horizon', () => {
+      const near = predictionWindow('2025-06-15', 1, 4, TEST_CONFIG).halfWidth;
+      const far = predictionWindow('2025-06-15', 9, 4, TEST_CONFIG).halfWidth;
+      expect(far).toBeGreaterThan(near);
+      // horizon 1: ±4; horizon 9: ±4*sqrt(9)=12
+      expect(near).toBe(4);
+      expect(far).toBe(12);
     });
   });
 });

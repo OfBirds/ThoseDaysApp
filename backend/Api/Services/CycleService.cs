@@ -114,9 +114,10 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
     {
         var periods = await GetPeriodsAsync(userId);
         var (cycleLength, periodDuration) = ComputeAverages(periods);
+        var confidence = ComputeConfidence(periods, cycleLength);
 
         DateTime? lastStart = periods.Count > 0 ? periods[^1].Start : null;
-        return await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, numCycles);
+        return await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, numCycles, confidence);
     }
 
     public async Task<(int cycleLength, int periodDuration, List<Cycle> cycles, List<Prediction> forecast)> RecalculateAsync(
@@ -145,9 +146,10 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         var (avgCycleLength, avgPeriodDuration) = ComputeAverages(periods);
         var cycleLength = cycleLengthOverride ?? avgCycleLength;
         var periodDuration = periodDurationOverride ?? avgPeriodDuration;
+        var confidence = ComputeConfidence(periods, cycleLength);
 
         DateTime? lastStart = periods.Count > 0 ? periods[^1].Start : null;
-        var forecast = await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, config.ForecastCount);
+        var forecast = await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, config.ForecastCount, confidence);
 
         return (cycleLength, periodDuration, newCycles, forecast);
     }
@@ -192,7 +194,8 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
     }
 
     private async Task<List<Prediction>> RegenerateForecastAsync(
-        Guid userId, DateTime? lastStart, int cycleLength, int periodDuration, int numCycles)
+        Guid userId, DateTime? lastStart, int cycleLength, int periodDuration, int numCycles,
+        double confidence)
     {
         var existing = await context.Predictions.Where(p => p.UserId == userId).ToListAsync();
         context.Predictions.RemoveRange(existing);
@@ -215,7 +218,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
                 UserId = userId,
                 PredictedStart = DateTime.SpecifyKind(nextStart, DateTimeKind.Utc),
                 PredictedDuration = periodDuration,
-                Confidence = 0.85f
+                Confidence = (float)confidence
             });
             nextStart = nextStart.AddDays(cycleLength);
         }
@@ -244,6 +247,37 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         var cycleLength = WeightedAverage(intervals, config.DefaultCycleLength);
         var periodDuration = WeightedAverage(durations, config.DefaultPeriodDuration);
         return (cycleLength, periodDuration);
+    }
+
+    /// <summary>
+    /// Confidence in the forecast, from how regular recent cycles have been.
+    /// confidence = clamp(1 - sigma/mu, floor, 1), where sigma is the std-dev of the
+    /// start-to-start intervals and mu is the (weighted) cycle length. Thin history
+    /// (fewer than ConfidenceMinIntervals intervals) falls back to a nominal value.
+    /// </summary>
+    internal double ComputeConfidence(List<(DateTime Start, int Length)> periods, int cycleLength)
+    {
+        var intervals = new List<int>();
+        for (int i = 1; i < periods.Count; i++)
+            intervals.Add((periods[i].Start - periods[i - 1].Start).Days);
+
+        if (intervals.Count < config.ConfidenceMinIntervals)
+            return config.ConfidenceNominal;
+
+        var mu = cycleLength > 0 ? cycleLength : config.DefaultCycleLength;
+        var sigma = StdDev(intervals);
+        var raw = 1.0 - (sigma / mu);
+        return Math.Clamp(raw, config.ConfidenceFloor, 1.0);
+    }
+
+    /// <summary>Population standard deviation.</summary>
+    internal static double StdDev(List<int> values)
+    {
+        if (values.Count < 2)
+            return 0;
+        var mean = values.Average();
+        var variance = values.Average(v => (v - mean) * (v - mean));
+        return Math.Sqrt(variance);
     }
 
     /// <summary>Recent-favored weighted mean, rounded. Values ordered newest → oldest.</summary>

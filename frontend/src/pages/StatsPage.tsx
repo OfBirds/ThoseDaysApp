@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { findNextPrediction, type RecalcConfig } from '../lib/predictions';
+import { findNextPrediction, predictionConfidence, type RecalcConfig } from '../lib/predictions';
 import {
   toPeriods, summarize, histogram, currentCycle, periodDaySet, accuracy, recentRows,
   type CycleRecord,
@@ -22,6 +22,7 @@ const DEFAULT_CONFIG: RecalcConfig = {
   defaultCycleLength: 28, defaultPeriodDuration: 5,
   cycleLengthMin: 21, cycleLengthMax: 35,
   periodDurationMin: 2, periodDurationMax: 10,
+  confidenceFloor: 0.3, confidenceNominal: 0.7, confidenceMinIntervals: 2, bandK: 1,
 };
 
 function todayIso() {
@@ -96,6 +97,9 @@ function StatsPage() {
   const intervalLabels = periods.slice(1).map((p) => prettyDate(p.start).replace(/,.*/, ''));
   const intervalValues = summary.intervals;
   const durationLabels = periods.map((p) => prettyDate(p.start).replace(/,.*/, ''));
+  const confidencePct = Math.round(
+    predictionConfidence(summary.intervals, summary.weightedInterval || config.defaultCycleLength, config) * 100
+  );
 
   return (
     <div className="stats-page">
@@ -124,6 +128,22 @@ function StatsPage() {
           </div>
         </section>
       )}
+
+      {/* Forecast confidence */}
+      <section className="card">
+        <h2
+          title="How sure we are about your predicted dates. It's higher when your recent cycles have been regular, lower when they vary a lot."
+        >
+          Forecast confidence
+        </h2>
+        <p className="card-hint">
+          Your cycles vary by about <strong>±{fmt(summary.intervalStdDev)} days</strong>, so your
+          predicted dates carry roughly <strong>{confidencePct}% confidence</strong>.{' '}
+          {confidencePct >= 75
+            ? 'Your cycles are quite regular, so the dates should land close.'
+            : "Your cycles vary a fair bit, so treat each date as a best guess — it could come a little earlier or later."}
+        </p>
+      </section>
 
       {/* Cycle length over time */}
       <section className="card">
