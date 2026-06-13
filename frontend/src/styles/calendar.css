@@ -72,6 +72,7 @@
   background: var(--primary);
   color: white;
   height: 2.6rem;
+  min-width: 11rem;
   padding: 0 1.25rem;
   border-radius: 6px;
   font-weight: 600;
@@ -429,6 +430,7 @@
 
 .save-import-button {
   height: 2.6rem;
+  min-width: 11rem;
   padding: 0 1.25rem;
   border: none;
   border-radius: 6px;
@@ -436,6 +438,11 @@
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.save-import-button:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
 }
 .save-import-button:disabled { opacity: 0.6; cursor: default; }
 
