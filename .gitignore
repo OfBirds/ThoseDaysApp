@@ -41,6 +41,10 @@ ScaffoldingReadMe.txt
 .env.*
 !.env.*.example
 
+# AI assistant local state (keep shared skills/settings, ignore local-only bits)
+.claude/worktrees/
+.continue/
+
 # Others
 ~$*
 *~

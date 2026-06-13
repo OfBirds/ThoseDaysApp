@@ -249,7 +249,8 @@ it's a big part of how a small self-hosted project like this can keep moving.
 
 If ThoseDaysApp is useful to you, you can support its development:
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy_me_a_coffee-☕-FFDD00?style=for-the-badge&logoColor=black)](https://buymeacoffee.com/YOUR_USERNAME)
+[![PayPal](https://img.shields.io/badge/PayPal-Donate-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/fun3fun)
+[![Patreon](https://img.shields.io/badge/Patreon-Support-FF424D?style=for-the-badge&logo=patreon&logoColor=white)](https://patreon.com/3fun)
 
 For issues or questions, please open an issue on the GitHub repository.
 
