@@ -20,7 +20,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             UserId = user.Id,
             Email = user.Email,
-            Token = token
+            Token = token,
+            NotifyReleases = user.NotifyReleases
         });
     }
 
@@ -36,7 +37,8 @@ public class AuthController(IAuthService authService) : ControllerBase
         {
             UserId = user.Id,
             Email = user.Email,
-            Token = token
+            Token = token,
+            NotifyReleases = user.NotifyReleases
         });
     }
 

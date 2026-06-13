@@ -17,6 +17,9 @@ public class AuthResponse
     public Guid UserId { get; set; }
     public required string Email { get; set; }
     public required string Token { get; set; }
+
+    /// <summary>Current release-email opt-in, so the client has prefs without an extra round-trip.</summary>
+    public bool NotifyReleases { get; set; }
 }
 
 public class ResetPasswordRequest

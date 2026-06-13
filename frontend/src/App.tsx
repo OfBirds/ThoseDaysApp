@@ -8,6 +8,7 @@ import StatusBar from './components/StatusBar';
 import BloodDropIcon from './components/BloodDropIcon';
 import LoginPage from './pages/LoginPage';
 import StatsPage from './pages/StatsPage';
+import SettingsPage from './pages/SettingsPage';
 import './styles/app.css';
 
 const FONT_MIN = 40;
@@ -127,6 +128,7 @@ function AppContent() {
         <nav className="app-nav">
           <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>Calendar</NavLink>
           <NavLink to="/stats" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>Statistics</NavLink>
+          <NavLink to="/settings" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>Settings</NavLink>
         </nav>
         <div className="app-header-right">
           <span className="app-header-email">{user.email}</span>
@@ -158,6 +160,7 @@ function AppContent() {
             }
           />
           <Route path="/stats" element={<StatsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
       <footer className="app-footer">
