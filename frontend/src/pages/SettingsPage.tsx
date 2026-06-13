@@ -136,34 +136,6 @@ function SettingsPage() {
       )}
 
       <DataSection userId={user.id} />
-
-      <section className="settings-section settings-support" aria-labelledby="settings-support-heading">
-        <h2 id="settings-support-heading" className="settings-section-title">
-          Support this project
-        </h2>
-        <p className="settings-row-help">
-          ThoseDays is free and open source, built for self-hosting. If it's useful to you and
-          you'd like to chip in, it's appreciated — never required.
-        </p>
-        <div className="settings-support-links">
-          <a
-            className="settings-support-link paypal"
-            href="https://paypal.me/fun3fun"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Donate via PayPal
-          </a>
-          <a
-            className="settings-support-link patreon"
-            href="https://patreon.com/3fun"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Support on Patreon
-          </a>
-        </div>
-      </section>
     </div>
   );
 }

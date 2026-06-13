@@ -118,29 +118,6 @@
 }
 .data-button:disabled { opacity: 0.5; cursor: default; }
 
-.settings-support {
-  margin-top: 1.25rem;
-}
-.settings-support-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-.settings-support-link {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-weight: 600;
-  text-decoration: none;
-  color: #fff;
-  transition: filter 0.15s ease;
-}
-.settings-support-link:hover { filter: brightness(1.08); }
-.settings-support-link.paypal { background: #00457C; }
-.settings-support-link.patreon { background: #FF424D; }
-
 .import-review {
   margin-top: 0.75rem;
   padding: 0.85rem 1rem;
