@@ -5,6 +5,11 @@ name: deploy
 on:
   push:
     branches: [main, release]
+  # Run the test job on PRs targeting main/release so they can be gated on green
+  # tests. build/deploy are skipped on PRs (see their `if:` guards) — a PR never
+  # builds an image or deploys.
+  pull_request:
+    branches: [main, release]
   # Manual redeploy/rollback from the Actions tab. Pick the branch to run from
   # (main -> staging, release -> prod), same routing as a push.
   workflow_dispatch:
@@ -34,6 +39,8 @@ jobs:
 
   build:
     needs: test
+    # Never build from a PR — only on a push to main/release or a manual run.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -102,6 +109,8 @@ jobs:
 
   deploy:
     needs: build
+    # Belt-and-suspenders: build is already PR-gated, so deploy can't run on a PR.
+    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, source]
     permissions:
       contents: read
