@@ -80,6 +80,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   const [msgOpen, setMsgOpen] = useState(false);
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(() => getPendingImport(userId));
   const [savingImport, setSavingImport] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Days covered by a staged-but-unsaved import, for the calendar overlay.
   const pendingDays = new Set(
@@ -235,17 +236,18 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     }
   };
 
+  const handleDiscardImport = () => {
+    clearPendingImport(userId);
+    setPendingImport(null);
+    setConfirmDiscard(false);
+  };
+
   const handleRecalculate = async () => {
     // Guard: Recalculate's full replace would throw away a staged import.
+    // Ask in-app (no native dialog) before discarding.
     if (pendingImport) {
-      const ok = window.confirm(
-        "You have imported history that hasn't been saved. Recalculating will discard it, and " +
-        'nothing will be saved. To keep the import, cancel and click "Save this history permanently" instead.'
-      );
-      if (!ok) return;
-      clearPendingImport(userId);
-      setPendingImport(null);
-      return; // nothing is written
+      setConfirmDiscard(true);
+      return;
     }
 
     if (tooFarDays.length > 0) return;
@@ -348,10 +350,25 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   return (
     <div className="calendar">
       {pendingImport && (
-        <div className="import-banner" role="status">
-          Imported history — <strong>not saved yet</strong>. Review the highlighted days, then click{' '}
-          <strong>Save this history permanently</strong>.
-        </div>
+        confirmDiscard ? (
+          <div className="import-banner discard-confirm" role="alert">
+            Recalculating will <strong>discard your imported history</strong>, and nothing will be
+            saved. To keep it, cancel and click <strong>Save Imported</strong> instead.
+            <div className="import-banner-actions">
+              <button className="banner-button danger" onClick={handleDiscardImport}>
+                Discard import
+              </button>
+              <button className="banner-button" onClick={() => setConfirmDiscard(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="import-banner" role="status">
+            Imported history — <strong>not saved yet</strong>. Review the highlighted days, then click{' '}
+            <strong>Save Imported</strong>.
+          </div>
+        )
       )}
       <div className="recalc-bar">
         <div className="recalc-controls">
@@ -406,7 +423,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
               disabled={savingImport}
               title="Writes the imported history to your account. Your history outside the imported dates is untouched, and you can still edit it later."
             >
-              {savingImport ? 'Saving…' : 'Save this history permanently'}
+              {savingImport ? 'Saving…' : 'Save Imported'}
             </button>
           )}
           {draft.dirty && <span className="unsaved-badge" title="Unsaved changes">●&nbsp;Unsaved</span>}

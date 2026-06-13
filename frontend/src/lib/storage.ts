@@ -42,7 +42,7 @@ export const clearDraft = (userId: string) => remove(`draft:${userId}`);
 
 // --- Pending import (per user) ---
 // A reviewed-but-not-saved import, staged for the user to look over on the
-// calendar before committing it with "Save this history permanently".
+// calendar before committing it with "Save Imported".
 export interface PendingImport {
   cycles: { startDate: string; durationDays: number; corrected?: boolean; auto?: boolean; predictedStart?: string | null }[];
   range: { start: string; end: string };

@@ -196,7 +196,7 @@ export default function DataSection({ userId }: { userId: string }) {
         {staged && (
           <p className="data-range" role="status">
             Loaded onto your calendar — not saved yet. Open the{' '}
-            <Link to="/">Calendar</Link> to review it, then click <strong>Save this history permanently</strong>.
+            <Link to="/">Calendar</Link> to review it, then click <strong>Save Imported</strong>.
           </p>
         )}
       </div>

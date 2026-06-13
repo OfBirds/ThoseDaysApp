@@ -428,15 +428,40 @@
 }
 
 .save-import-button {
-  padding: 0.5rem 1rem;
+  height: 2.6rem;
+  padding: 0 1.25rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--warning, #B8860B);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
 }
 .save-import-button:disabled { opacity: 0.6; cursor: default; }
+
+.import-banner.discard-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.import-banner-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.banner-button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+  background: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.banner-button.danger {
+  background: var(--warning, #B8860B);
+  border-color: var(--warning, #B8860B);
+  color: #fff;
+}
 
 .period-mark.pending-import {
   outline: 2px dashed var(--warning, #B8860B);
