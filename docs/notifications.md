@@ -31,8 +31,10 @@ manual tagging:
     `1.0.<run_number>` → e.g. `1.0.47`. No git tags, no write-back to the repo,
     no state to manage.
   - Patch is **non-resetting** (simple): bumping the minor gives `1.1.48`, not
-    `1.1.0`. Still unique and monotonic — fine as an idempotency key and for
-    "new version" messaging.
+    `1.1.0`. It uniquely identifies the *build* (used for the image tag, the
+    `/api/version` readout, and diagnostics) but is **not** the notification key —
+    because it changes on every deploy, keying emails off it would notify users on
+    every redeploy. Notifications key off `MAJOR.MINOR` only (see below).
 - **Inject at build time** into the image:
   - Backend: pass `-p:Version` / `-p:InformationalVersion` to `dotnet publish`
     (via a Docker `ARG APP_VERSION`). Exposed at runtime through the assembly's
@@ -43,8 +45,9 @@ manual tagging:
 - **`GET /api/version`** returns `{ version, commit, builtAt }` — the canonical
   way anything asks "what version is the server?".
 
-The version string is the **idempotency key** for notifications (below), which
-is why this has to exist first.
+The `MAJOR.MINOR` **release line** (derived from the version string by dropping
+the build segment) is the **idempotency key** for notifications (below), which is
+why versioning has to exist first.
 
 ## 2. The notification trigger
 
@@ -55,16 +58,19 @@ the user list and the email transport, and "app has started" already means
 ### Flow (on application startup, in a background task)
 
 ```
+releaseLine = MAJOR.MINOR of currentVersion        # "1.1.47" -> "1.1"
 if config.NOTIFY_ON_DEPLOY == true
-   and currentVersion != state.last_notified_version:
+   and releaseLine != MAJOR.MINOR of state.last_notified_version:
        recipients = users where notify_releases == true
        for each recipient: send release email (async, best-effort)
-       state.last_notified_version = currentVersion   # persist
+       state.last_notified_version = releaseLine     # persist (normalized)
 ```
 
-- **Idempotent**: `last_notified_version` is stored in the DB, so restarts /
-  redeploys of the *same* version never re-send. Emails go out once per new
-  version.
+- **Idempotent**: `last_notified_version` is stored in the DB and compared on
+  `MAJOR.MINOR`, so restarts and redeploys at the *same* release line never
+  re-send. Emails go out **once per `MAJOR.MINOR` bump** — only a hand edit of the
+  `VERSION` file (`1.1` → `1.2`) announces. (The stored value is also normalized on
+  read, so a legacy full-version value like `1.1.43` is recognized as `1.1`.)
 - **Gated**: staging runs with `NOTIFY_ON_DEPLOY=false`, so it exercises the
   whole build/version path without ever emailing. Prod runs with `true`.
 - **Non-blocking**: runs in a background task (`IHostedService` /
