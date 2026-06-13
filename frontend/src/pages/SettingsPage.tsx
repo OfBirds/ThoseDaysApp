@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import DataSection from '../components/DataSection';
 import '../styles/settings.css';
 
 interface Prefs {
@@ -98,6 +99,7 @@ function SettingsPage() {
               <span className="settings-row-label">How many days before?</span>
               <input
                 type="number"
+                aria-label="Days before my period"
                 min={LEAD_MIN}
                 max={LEAD_MAX}
                 value={prefs.reminderLeadDays}
@@ -132,6 +134,8 @@ function SettingsPage() {
           )}
         </section>
       )}
+
+      <DataSection userId={user.id} />
     </div>
   );
 }

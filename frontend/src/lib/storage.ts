@@ -40,6 +40,18 @@ export const getDraft = (userId: string) => read<Draft>(`draft:${userId}`);
 export const saveDraft = (userId: string, draft: Draft) => write(`draft:${userId}`, draft);
 export const clearDraft = (userId: string) => remove(`draft:${userId}`);
 
+// --- Pending import (per user) ---
+// A reviewed-but-not-saved import, staged for the user to look over on the
+// calendar before committing it with "Save this history permanently".
+export interface PendingImport {
+  cycles: { startDate: string; durationDays: number; corrected?: boolean; auto?: boolean; predictedStart?: string | null }[];
+  range: { start: string; end: string };
+  schemaVersion: number;
+}
+export const getPendingImport = (userId: string) => read<PendingImport>(`pendingImport:${userId}`);
+export const savePendingImport = (userId: string, p: PendingImport) => write(`pendingImport:${userId}`, p);
+export const clearPendingImport = (userId: string) => remove(`pendingImport:${userId}`);
+
 // --- Theme ---
 export type Theme = 'light' | 'dark';
 export const getTheme = () => read<Theme>('theme');

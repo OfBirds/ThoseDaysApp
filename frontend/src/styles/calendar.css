@@ -416,3 +416,30 @@
     padding: 1rem;
   }
 }
+
+/* Staged-but-unsaved import */
+.import-banner {
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning, #B8860B) 18%, transparent);
+  border: 1px solid var(--warning, #B8860B);
+  font-size: 0.9rem;
+}
+
+.save-import-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--warning, #B8860B);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.save-import-button:disabled { opacity: 0.6; cursor: default; }
+
+.period-mark.pending-import {
+  outline: 2px dashed var(--warning, #B8860B);
+  outline-offset: -2px;
+  opacity: 0.9;
+}

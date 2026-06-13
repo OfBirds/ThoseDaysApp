@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
-import { getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, type Draft } from '../lib/storage';
+import {
+  getDraft, saveDraft, getAutoUpdate, saveAutoUpdate,
+  getPendingImport, clearPendingImport, type Draft, type PendingImport,
+} from '../lib/storage';
 import {
   isoDate, addDaysIso, daysBetween, spanDays, groupPeriods,
   computeAverages, findNextPrediction, predictionTier,
@@ -75,6 +78,13 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   const [recalculating, setRecalculating] = useState(false);
   const [recalcError, setRecalcError] = useState('');
   const [msgOpen, setMsgOpen] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingImport | null>(() => getPendingImport(userId));
+  const [savingImport, setSavingImport] = useState(false);
+
+  // Days covered by a staged-but-unsaved import, for the calendar overlay.
+  const pendingDays = new Set(
+    pendingImport ? pendingImport.cycles.flatMap(c => spanDays(c.startDate.slice(0, 10), c.durationDays)) : []
+  );
 
   // Days that came from auto-filled (elapsed-forecast) cycles, for the marker.
   const autoDays = new Set(cyclesToDays(cycles.filter(c => c.auto)));
@@ -198,7 +208,46 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       }
     : null;
 
+  // Save the staged import as a patch (its own commit path, preserving history
+  // outside the imported window).
+  const handleSavePermanently = async () => {
+    if (!pendingImport) return;
+    setRecalcError('');
+    setSavingImport(true);
+    try {
+      const res = await fetch(`/api/user/${userId}/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schemaVersion: pendingImport.schemaVersion, cycles: pendingImport.cycles }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error ?? 'Import failed');
+      }
+      clearPendingImport(userId);
+      setPendingImport(null);
+      await fetchPredictions();
+      onCommitted();
+    } catch (e) {
+      setRecalcError(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setSavingImport(false);
+    }
+  };
+
   const handleRecalculate = async () => {
+    // Guard: Recalculate's full replace would throw away a staged import.
+    if (pendingImport) {
+      const ok = window.confirm(
+        "You have imported history that hasn't been saved. Recalculating will discard it, and " +
+        'nothing will be saved. To keep the import, cancel and click "Save this history permanently" instead.'
+      );
+      if (!ok) return;
+      clearPendingImport(userId);
+      setPendingImport(null);
+      return; // nothing is written
+    }
+
     if (tooFarDays.length > 0) return;
     setRecalcError('');
     setRecalculating(true);
@@ -279,6 +328,12 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
               <span className="calc-badge" title="Calculated">∿</span>
             </div>
           )}
+          {pendingDays.has(iso) && (
+            <div className="period-mark pending-import" title="Imported — not saved yet">
+              <BloodDropIcon />
+              <span className="calc-badge">⤓</span>
+            </div>
+          )}
         </div>
       );
     }
@@ -292,6 +347,12 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
 
   return (
     <div className="calendar">
+      {pendingImport && (
+        <div className="import-banner" role="status">
+          Imported history — <strong>not saved yet</strong>. Review the highlighted days, then click{' '}
+          <strong>Save this history permanently</strong>.
+        </div>
+      )}
       <div className="recalc-bar">
         <div className="recalc-controls">
           <div className="recalc-field">
@@ -335,9 +396,19 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
             </button>
             {activeMessage && <div className="recalc-popover" role="alert">{activeMessage.text}</div>}
           </div>
-          <button className="recalc-button" onClick={handleRecalculate} disabled={recalculating}>
+          <button className="recalc-button" onClick={handleRecalculate} disabled={recalculating || savingImport}>
             {recalculating ? 'Recalculating…' : 'Recalculate'}
           </button>
+          {pendingImport && (
+            <button
+              className="save-import-button"
+              onClick={handleSavePermanently}
+              disabled={savingImport}
+              title="Writes the imported history to your account. Your history outside the imported dates is untouched, and you can still edit it later."
+            >
+              {savingImport ? 'Saving…' : 'Save this history permanently'}
+            </button>
+          )}
           {draft.dirty && <span className="unsaved-badge" title="Unsaved changes">●&nbsp;Unsaved</span>}
         </div>
         <label className="auto-update-toggle">

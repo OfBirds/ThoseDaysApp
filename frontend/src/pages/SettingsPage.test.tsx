@@ -27,9 +27,12 @@ describe('SettingsPage', () => {
   });
 
   beforeEach(() => {
-    globalThis.fetch = vi.fn((_url: string | URL | Request, opts?: RequestInit) => {
+    globalThis.fetch = vi.fn((url: string | URL | Request, opts?: RequestInit) => {
       if ((opts?.method ?? 'GET') === 'PUT') {
         return Promise.resolve({ ok: true, json: async () => JSON.parse(opts!.body as string) } as Response);
+      }
+      if (String(url).endsWith('/cycles')) {
+        return Promise.resolve({ ok: true, json: async () => [] } as Response);
       }
       return Promise.resolve({ ok: true, json: async () => ({ ...initialPrefs }) } as Response);
     }) as unknown as typeof fetch;
@@ -76,6 +79,8 @@ describe('SettingsPage', () => {
       expect(JSON.parse((put![1] as RequestInit).body as string).notifyPeriodReminder).toBe(true);
     });
     // Lead-days input appears once reminders are on.
-    await waitFor(() => expect(screen.getByRole('spinbutton')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: /days before/i })).toBeInTheDocument()
+    );
   });
 });

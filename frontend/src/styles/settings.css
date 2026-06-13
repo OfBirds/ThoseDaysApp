@@ -68,3 +68,62 @@
   width: 4rem;
   padding: 0.3rem 0.4rem;
 }
+
+.data-block {
+  margin-top: 1.25rem;
+}
+.data-block:first-of-type { margin-top: 0; }
+
+.data-subtitle {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+
+.data-export-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+.data-export-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.data-export-controls input[type='number'] {
+  width: 3.5rem;
+  padding: 0.25rem 0.4rem;
+}
+
+.data-range {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  margin: 0.5rem 0;
+}
+
+.data-button {
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  cursor: pointer;
+}
+.data-button.secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.2));
+}
+.data-button:disabled { opacity: 0.5; cursor: default; }
+
+.import-review {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--warning, #B8860B);
+  border-radius: 10px;
+}
+.import-review-list { margin: 0.5rem 0; padding-left: 1.2rem; }
+.import-review-note { font-size: 0.9rem; }
+.import-review-actions { display: flex; gap: 0.75rem; margin-top: 0.75rem; }

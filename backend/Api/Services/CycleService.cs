@@ -1,5 +1,6 @@
 using Api.Config;
 using Api.Data;
+using Api.DTOs;
 using Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,8 @@ public interface ICycleService
     Task<(int cycleLength, int periodDuration, List<Cycle> cycles, List<Prediction> forecast)> RecalculateAsync(
         Guid userId, IEnumerable<DateTime> days, int? cycleLengthOverride, int? periodDurationOverride);
     Task<int> ReconcileAsync(Guid userId, DateTime localToday);
+    Task<ExportDocument> BuildExportAsync(Guid userId, int? cycles, string kind, string? appVersion);
+    Task<ImportResultResponse> PatchCyclesAsync(Guid userId, List<ExportCycle> imported);
 }
 
 public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOptions) : ICycleService
@@ -191,6 +194,123 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         await GeneratePredictionsAsync(userId, config.ForecastCount);
 
         return elapsed.Count;
+    }
+
+    // --- Export / import --------------------------------------------------------
+
+    private static string Iso(DateTime d) => d.ToString("yyyy-MM-dd");
+
+    private static string LastBleedingDay(DateTime start, int duration) =>
+        Iso(start.Date.AddDays(Math.Max(1, duration) - 1));
+
+    /// <summary>
+    /// Build a portable export. cycles=null → full history; otherwise the most
+    /// recent N cycles (a patch). Excludes secrets and predictions by construction.
+    /// </summary>
+    public async Task<ExportDocument> BuildExportAsync(Guid userId, int? cycles, string kind, string? appVersion)
+    {
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var all = await GetUserCyclesAsync(userId); // start-ascending
+        var isPatch = cycles is int n && n > 0 && n < all.Count;
+        var selected = isPatch ? all.Skip(all.Count - cycles!.Value).ToList() : all;
+
+        var doc = new ExportDocument
+        {
+            SchemaVersion = 1,
+            Kind = kind,
+            Scope = isPatch ? "patch" : "full",
+            ExportedAt = DateTime.UtcNow,
+            AppVersion = appVersion,
+            CycleCount = selected.Count,
+            Account = user is null ? null : new ExportAccount
+            {
+                Email = user.Email,
+                CreatedAt = user.CreatedAt,
+                NotifyReleases = user.NotifyReleases,
+                NotifyPeriodReminder = user.NotifyPeriodReminder,
+            },
+            Cycles = selected.Select(c => new ExportCycle
+            {
+                StartDate = Iso(c.StartDate),
+                DurationDays = c.DurationDays,
+                Corrected = c.Corrected,
+                Auto = c.Auto,
+                PredictedStart = c.PredictedStart is null ? null : Iso(c.PredictedStart.Value),
+                CreatedAt = c.CreatedAt,
+            }).ToList(),
+        };
+
+        if (selected.Count > 0)
+            doc.Range = new ExportRange
+            {
+                Start = Iso(selected[0].StartDate),
+                End = LastBleedingDay(selected[^1].StartDate, selected[^1].DurationDays),
+            };
+
+        return doc;
+    }
+
+    /// <summary>
+    /// Apply an import as a patch: replace only existing cycles whose start falls
+    /// inside the imported window [P0, P1], keep everything before/after, then
+    /// regenerate the forecast. Atomic (single SaveChanges for the cycle changes).
+    /// </summary>
+    public async Task<ImportResultResponse> PatchCyclesAsync(Guid userId, List<ExportCycle> imported)
+    {
+        var parsed = imported
+            .Select(c => (Start: ToUtc(DateTime.Parse(c.StartDate, System.Globalization.CultureInfo.InvariantCulture)).Date,
+                          c.DurationDays, c.Corrected, c.Auto, c.PredictedStart))
+            .OrderBy(c => c.Start)
+            .ToList();
+
+        if (parsed.Count == 0)
+            return new ImportResultResponse { Added = 0, Removed = 0 };
+
+        var p0 = parsed[0].Start;
+        var p1 = parsed[^1].Start.AddDays(Math.Max(1, parsed[^1].DurationDays) - 1);
+
+        var existing = await context.Cycles.Where(c => c.UserId == userId).ToListAsync();
+        var toRemove = existing.Where(c => c.StartDate.Date >= p0 && c.StartDate.Date <= p1).ToList();
+        context.Cycles.RemoveRange(toRemove);
+
+        foreach (var c in parsed)
+        {
+            context.Cycles.Add(new Cycle
+            {
+                UserId = userId,
+                StartDate = DateTime.SpecifyKind(c.Start, DateTimeKind.Utc),
+                DurationDays = c.DurationDays,
+                Corrected = c.Corrected,
+                Auto = c.Auto,
+                PredictedStart = string.IsNullOrWhiteSpace(c.PredictedStart)
+                    ? null
+                    : DateTime.SpecifyKind(DateTime.Parse(c.PredictedStart!, System.Globalization.CultureInfo.InvariantCulture).Date, DateTimeKind.Utc),
+            });
+        }
+        await context.SaveChangesAsync();
+
+        await GeneratePredictionsAsync(userId, config.ForecastCount);
+
+        return new ImportResultResponse
+        {
+            Added = parsed.Count,
+            Removed = toRemove.Count,
+            Range = new ExportRange { Start = Iso(p0), End = Iso(p1) },
+        };
+    }
+
+    /// <summary>
+    /// File name for an export/backup, per the convention in docs/data-export-import.md:
+    /// thosedays-{kind}-[{userShort}-]{scope}-{rangeStart}_{rangeEnd}-{stamp}.json
+    /// </summary>
+    public static string ExportFileName(ExportDocument doc, string? userShort = null)
+    {
+        static string Compact(string? iso) => (iso ?? "").Replace("-", "");
+        var start = Compact(doc.Range?.Start);
+        var end = Compact(doc.Range?.End);
+        var stamp = doc.ExportedAt.ToString("yyyyMMdd'T'HHmm'Z'");
+        var userSeg = string.IsNullOrEmpty(userShort) ? "" : $"{userShort}-";
+        return $"thosedays-{doc.Kind}-{userSeg}{doc.Scope}-{start}_{end}-{stamp}.json";
     }
 
     private async Task<List<Prediction>> RegenerateForecastAsync(
