@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or help with self-hosting
+    url: https://github.com/Trifunovich/ThoseDaysApp/discussions
+    about: For setup help and general questions, please open a Discussion.
+  - name: Support the project (PayPal)
+    url: https://paypal.me/fun3fun
+    about: ThoseDays is free and open source — donations are appreciated, never required.
+  - name: Support the project (Patreon)
+    url: https://patreon.com/3fun
+    about: Back ongoing development on Patreon.
