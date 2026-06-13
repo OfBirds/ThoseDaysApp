@@ -227,6 +227,9 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       }
       clearPendingImport(userId);
       setPendingImport(null);
+      // The import is now committed; drop any "unsaved" state so the draft
+      // reseeds from the freshly-saved cycles (see the seeding effect).
+      setDraft(prev => ({ ...prev, dirty: false }));
       await fetchPredictions();
       onCommitted();
     } catch (e) {
