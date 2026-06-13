@@ -1,6 +1,6 @@
 # Prediction confidence / variability — design
 
-> Status: **planning / draft**. No code yet. Captures the intended design for
+> Status: **implemented** (branch `feat/reminders-export-confidence`). Captures the design for
 > turning the unused, hard-coded `Confidence` field into a real, variability-based
 > signal and surfacing a ± range on predictions.
 

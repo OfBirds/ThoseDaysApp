@@ -1,6 +1,6 @@
 # Data export / import / backup — design
 
-> Status: **planning / draft**. No code yet. Captures the intended design for
+> Status: **implemented** (branch `feat/reminders-export-confidence`). Captures the design for
 > letting a user download their data (full or a date-range patch), re-import it
 > safely as a reviewed patch, and have the server keep periodic backups — all in
 > service of the project's self-hosted, "your data is yours" ethos.

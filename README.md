@@ -136,7 +136,7 @@ Deeper docs live in [`docs/`](docs/):
 - [deploy-runbook.md](docs/deploy-runbook.md) — one-time homelab VM setup for auto-deploy
 - [testing.md](docs/testing.md) — what each test suite covers and the CI gate
 
-**Feature design** (planning drafts — not all implemented yet)
+**Feature design**
 
 - [recalc-spec.md](docs/recalc-spec.md) — the recalculation / draft-vs-committed model
 - [notifications.md](docs/notifications.md) — release-notification emails (versioning + delivery)

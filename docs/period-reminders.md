@@ -1,6 +1,6 @@
 # Period reminder notifications — design
 
-> Status: **planning / draft**. No code yet. Captures the intended design for
+> Status: **implemented** (branch `feat/reminders-export-confidence`). Captures the design for
 > emailing opted-in users ahead of a predicted period, reusing the email +
 > opt-in + unsubscribe machinery already built for release notifications.
 
