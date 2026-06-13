@@ -42,6 +42,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       # Release-notification settings (see docs/notifications.md).
       NOTIFY_ON_DEPLOY: ${NOTIFY_ON_DEPLOY}
+      # Period reminders (see docs/period-reminders.md). Off unless "true".
+      NOTIFY_REMINDERS: ${NOTIFY_REMINDERS}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}

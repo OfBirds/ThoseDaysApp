@@ -4,7 +4,12 @@ import '../styles/settings.css';
 
 interface Prefs {
   notifyReleases: boolean;
+  notifyPeriodReminder: boolean;
+  reminderLeadDays: number;
 }
+
+const LEAD_MIN = 1;
+const LEAD_MAX = 7;
 
 function SettingsPage() {
   const { user } = useAuth();
@@ -69,12 +74,48 @@ function SettingsPage() {
             Notifications
           </h2>
 
+          <label
+            className="settings-row"
+            title="We'll send a reminder a few days before your next expected period. You can turn this off any time, including from a link in the email."
+          >
+            <input
+              type="checkbox"
+              checked={prefs?.notifyPeriodReminder ?? false}
+              disabled={saving || !prefs}
+              onChange={(e) => prefs && update({ ...prefs, notifyPeriodReminder: e.target.checked })}
+            />
+            <span className="settings-row-label">
+              Email me before my period
+              <span className="settings-row-help">
+                A gentle reminder a few days ahead, based on your recent cycles. Email only — no
+                data leaves the app. Needs an email on file and email set up by your host.
+              </span>
+            </span>
+          </label>
+
+          {prefs?.notifyPeriodReminder && (
+            <label className="settings-row settings-subrow" title="How early the reminder arrives before your expected period.">
+              <span className="settings-row-label">How many days before?</span>
+              <input
+                type="number"
+                min={LEAD_MIN}
+                max={LEAD_MAX}
+                value={prefs.reminderLeadDays}
+                disabled={saving}
+                onChange={(e) => {
+                  const n = Math.min(LEAD_MAX, Math.max(LEAD_MIN, Number(e.target.value) || LEAD_MIN));
+                  update({ ...prefs, reminderLeadDays: n });
+                }}
+              />
+            </label>
+          )}
+
           <label className="settings-row" title="Get an email when a new version of ThoseDays is released. You can turn this off any time, including from a link in the email.">
             <input
               type="checkbox"
               checked={prefs?.notifyReleases ?? false}
-              disabled={saving}
-              onChange={(e) => update({ notifyReleases: e.target.checked })}
+              disabled={saving || !prefs}
+              onChange={(e) => prefs && update({ ...prefs, notifyReleases: e.target.checked })}
             />
             <span className="settings-row-label">
               Email me about new versions

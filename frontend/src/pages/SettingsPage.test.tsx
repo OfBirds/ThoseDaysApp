@@ -11,6 +11,15 @@ vi.mock('../context/AuthContext', () => {
   return { useAuth: () => ({ user }) };
 });
 
+const initialPrefs = { notifyReleases: true, notifyPeriodReminder: false, reminderLeadDays: 2 };
+
+function lastPut() {
+  const puts = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+    (c) => (c[1] as RequestInit | undefined)?.method === 'PUT'
+  );
+  return puts[puts.length - 1];
+}
+
 describe('SettingsPage', () => {
   afterEach(() => {
     cleanup();
@@ -18,46 +27,55 @@ describe('SettingsPage', () => {
   });
 
   beforeEach(() => {
-    // GET prefs → opted in; PUT echoes whatever was sent.
-    globalThis.fetch = vi.fn((url: string | URL | Request, opts?: RequestInit) => {
-      const method = opts?.method ?? 'GET';
-      if (method === 'PUT') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => JSON.parse(opts!.body as string),
-        } as Response);
+    globalThis.fetch = vi.fn((_url: string | URL | Request, opts?: RequestInit) => {
+      if ((opts?.method ?? 'GET') === 'PUT') {
+        return Promise.resolve({ ok: true, json: async () => JSON.parse(opts!.body as string) } as Response);
       }
-      return Promise.resolve({
-        ok: true,
-        json: async () => ({ notifyReleases: true }),
-      } as Response);
+      return Promise.resolve({ ok: true, json: async () => ({ ...initialPrefs }) } as Response);
     }) as unknown as typeof fetch;
   });
 
-  it('renders the toggle reflecting the loaded preference', async () => {
+  it('renders toggles reflecting the loaded preferences', async () => {
     render(<SettingsPage />);
-    const checkbox = await screen.findByRole('checkbox');
-    expect(checkbox).toBeChecked();
+    const releases = await screen.findByRole('checkbox', { name: /new versions/i });
+    const reminder = screen.getByRole('checkbox', { name: /before my period/i });
+    expect(releases).toBeChecked();
+    expect(reminder).not.toBeChecked();
   });
 
-  it('PUTs the new value when toggled off', async () => {
+  it('PUTs the release pref when toggled off, preserving the others', async () => {
     const user = userEvent.setup();
     render(<SettingsPage />);
-    const checkbox = await screen.findByRole('checkbox');
+    const releases = await screen.findByRole('checkbox', { name: /new versions/i });
 
-    await user.click(checkbox);
+    await user.click(releases);
 
     await waitFor(() => {
-      const putCall = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
-        (c) => (c[1] as RequestInit | undefined)?.method === 'PUT'
-      );
-      expect(putCall).toBeTruthy();
-      expect(putCall![0]).toBe('/api/user/user-1/prefs');
-      expect(JSON.parse((putCall![1] as RequestInit).body as string)).toEqual({
+      const put = lastPut();
+      expect(put).toBeTruthy();
+      expect(put![0]).toBe('/api/user/user-1/prefs');
+      expect(JSON.parse((put![1] as RequestInit).body as string)).toEqual({
         notifyReleases: false,
+        notifyPeriodReminder: false,
+        reminderLeadDays: 2,
       });
     });
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /new versions/i })).not.toBeChecked());
+  });
 
-    await waitFor(() => expect(screen.getByRole('checkbox')).not.toBeChecked());
+  it('turning reminders on PUTs the opt-in and reveals the lead-days input', async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+    const reminder = await screen.findByRole('checkbox', { name: /before my period/i });
+
+    await user.click(reminder);
+
+    await waitFor(() => {
+      const put = lastPut();
+      expect(put).toBeTruthy();
+      expect(JSON.parse((put![1] as RequestInit).body as string).notifyPeriodReminder).toBe(true);
+    });
+    // Lead-days input appears once reminders are on.
+    await waitFor(() => expect(screen.getByRole('spinbutton')).toBeInTheDocument());
   });
 });

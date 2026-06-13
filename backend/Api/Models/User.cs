@@ -11,6 +11,19 @@ public class User
     /// <summary>Whether this user receives "new version released" emails.</summary>
     public bool NotifyReleases { get; set; } = true;
 
+    /// <summary>Whether this user receives a reminder email before a predicted period.</summary>
+    public bool NotifyPeriodReminder { get; set; } = false;
+
+    /// <summary>How many days before a predicted period to send the reminder.</summary>
+    public int ReminderLeadDays { get; set; } = 2;
+
+    /// <summary>
+    /// The predicted-start date we last reminded this user about. Dedupes the daily
+    /// sweep so one upcoming cycle is reminded at most once; a regenerated forecast
+    /// with a new start date re-arms it. Null until the first reminder is sent.
+    /// </summary>
+    public DateTime? LastReminderSentFor { get; set; }
+
     /// <summary>Opaque token for one-click unsubscribe links.</summary>
     public Guid UnsubscribeToken { get; set; } = Guid.NewGuid();
 

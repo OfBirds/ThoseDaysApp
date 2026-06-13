@@ -8,9 +8,13 @@ namespace Api.DTOs;
 public class UserPrefsResponse
 {
     public bool NotifyReleases { get; set; }
+    public bool NotifyPeriodReminder { get; set; }
+    public int ReminderLeadDays { get; set; }
 }
 
 public class UpdateUserPrefsRequest
 {
     public bool NotifyReleases { get; set; }
+    public bool NotifyPeriodReminder { get; set; }
+    public int ReminderLeadDays { get; set; }
 }

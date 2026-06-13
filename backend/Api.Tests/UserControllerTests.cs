@@ -75,4 +75,38 @@ public class UserControllerTests : IDisposable
 
         Assert.IsType<NotFoundResult>(result.Result);
     }
+
+    [Fact]
+    public async Task UpdatePrefs_PersistsReminderOptInAndLeadDays()
+    {
+        var result = await _controller.UpdatePrefs(
+            _userId,
+            new UpdateUserPrefsRequest { NotifyReleases = true, NotifyPeriodReminder = true, ReminderLeadDays = 3 },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var prefs = Assert.IsType<UserPrefsResponse>(ok.Value);
+        Assert.True(prefs.NotifyPeriodReminder);
+        Assert.Equal(3, prefs.ReminderLeadDays);
+
+        var stored = await _db.Users.FindAsync(_userId);
+        Assert.True(stored!.NotifyPeriodReminder);
+        Assert.Equal(3, stored.ReminderLeadDays);
+    }
+
+    [Theory]
+    [InlineData(0, 1)]    // below min → clamped up
+    [InlineData(99, 7)]   // above max → clamped down
+    [InlineData(4, 4)]    // in range → unchanged
+    public async Task UpdatePrefs_ClampsLeadDays(int requested, int expected)
+    {
+        var result = await _controller.UpdatePrefs(
+            _userId,
+            new UpdateUserPrefsRequest { NotifyPeriodReminder = true, ReminderLeadDays = requested },
+            CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result.Result);
+        var prefs = Assert.IsType<UserPrefsResponse>(ok.Value);
+        Assert.Equal(expected, prefs.ReminderLeadDays);
+    }
 }
