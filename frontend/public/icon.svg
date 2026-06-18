@@ -1,0 +1,10 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Rosella Rhythm blossom">
+  <g fill="#FF6B6B">
+    <ellipse cx="32" cy="15" rx="8.5" ry="12"/>
+    <ellipse cx="32" cy="15" rx="8.5" ry="12" transform="rotate(72 32 32)"/>
+    <ellipse cx="32" cy="15" rx="8.5" ry="12" transform="rotate(144 32 32)"/>
+    <ellipse cx="32" cy="15" rx="8.5" ry="12" transform="rotate(216 32 32)"/>
+    <ellipse cx="32" cy="15" rx="8.5" ry="12" transform="rotate(288 32 32)"/>
+  </g>
+  <circle cx="32" cy="32" r="7" fill="#FFD3D3"/>
+</svg>

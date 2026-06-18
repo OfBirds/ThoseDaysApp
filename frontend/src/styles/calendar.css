@@ -143,38 +143,87 @@
   background: color-mix(in srgb, var(--warning) 16%, transparent);
 }
 
-/* The popped-out message — mirrors the old banner's left-border look. */
-.recalc-popover {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 0.4rem);
-  z-index: 20;
-  width: max-content;
-  max-width: 340px;
-  padding: 0.6rem 0.85rem;
-  font-size: 0.875rem;
-  line-height: 1.4;
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-  visibility: hidden;
+.recalc-msg.active .recalc-msg-icon {
+  cursor: pointer;
 }
 
-.recalc-msg.active.error .recalc-popover {
-  color: var(--error);
-  background: color-mix(in srgb, var(--error) 10%, var(--surface));
-  border-left: 4px solid var(--error);
+/* Click opens a real modal — fixed/centered, so it can never shift the page
+   layout or overflow the viewport the way an inline popover did. */
+.msg-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
 }
 
-.recalc-msg.active.warning .recalc-popover {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 12%, var(--surface));
-  border-left: 4px solid var(--warning);
+.msg-modal {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  border-top: 5px solid var(--border);
+  padding: 1.25rem 1.35rem 1.1rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
-.recalc-msg.active:hover .recalc-popover,
-.recalc-msg.active.open .recalc-popover {
-  visibility: visible;
+.msg-modal.error { border-top-color: var(--error); }
+.msg-modal.warning { border-top-color: var(--warning); }
+
+.msg-modal-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
 }
+
+.msg-modal.error .msg-modal-title { color: var(--error); }
+.msg-modal.warning .msg-modal-title { color: var(--warning); }
+
+.msg-modal-text {
+  margin: 0 0 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.msg-modal-close {
+  display: block;
+  margin-left: auto;
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: var(--primary);
+}
+
+.msg-modal.error .msg-modal-close { background: var(--error); }
+.msg-modal.warning .msg-modal-close { background: var(--warning); }
+
+.msg-modal-close:hover { opacity: 0.9; }
+
+/* Warning dialog: Cancel / Recalculate-anyway pair. */
+.msg-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.msg-modal-cancel {
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.msg-modal-cancel:hover { background: var(--neutral); }
 
 .calendar-body {
   position: relative;
@@ -278,9 +327,28 @@
   opacity: 0.9;
 }
 
+/* Prev/next month: circular arrow buttons. */
+.calendar-header button.month-nav {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  line-height: 1;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.calendar-header button.month-nav:hover {
+  transform: translateY(-1px);
+}
+
 .calendar-weekdays {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   padding: 1rem;
   background: var(--neutral);
@@ -292,7 +360,7 @@
 
 .calendar-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0;
   padding: 1rem;
   min-height: 400px;
@@ -394,6 +462,11 @@
 }
 
 @media (max-width: 768px) {
+  .calendar-grid,
+  .calendar-weekdays {
+    padding: 0.5rem;
+  }
+
   .calendar-day {
     padding: 0.25rem;
     font-size: 0.75rem;
@@ -415,6 +488,14 @@
   .calendar-legend {
     gap: 1rem;
     padding: 1rem;
+  }
+
+  .recalc-bar {
+    padding: 1rem;
+  }
+
+  .recalc-msg {
+    align-self: flex-end;
   }
 }
 

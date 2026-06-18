@@ -46,11 +46,11 @@ export function parseImport(text: string): { doc: ImportDoc } | { error: string 
   try {
     raw = JSON.parse(text);
   } catch {
-    return { error: "That doesn't look like a ThoseDays file — it isn't valid JSON." };
+    return { error: "That doesn't look like a Rosella Rhythm file — it isn't valid JSON." };
   }
   const obj = raw as Partial<ImportDoc>;
   if (typeof obj.schemaVersion !== 'number')
-    return { error: "This file is missing its version — it may not be a ThoseDays export." };
+    return { error: "This file is missing its version — it may not be a Rosella Rhythm export." };
   if (obj.schemaVersion !== SCHEMA_VERSION)
     return { error: `This file is version ${obj.schemaVersion}; this app reads version ${SCHEMA_VERSION}.` };
   if (!Array.isArray(obj.cycles) || obj.cycles.length === 0)

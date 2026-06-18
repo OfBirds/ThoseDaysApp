@@ -166,7 +166,7 @@ function AppContent() {
       </main>
       <footer className="app-footer">
         <BloodDropIcon size={16} />
-        <span className="app-brand">ThoseDaysApp</span>
+        <span className="app-brand">Rosella Rhythm</span>
       </footer>
     </div>
   );

@@ -134,7 +134,9 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   useEffect(() => {
     fetch('/api/config')
       .then(r => (r.ok ? r.json() : null))
-      .then(c => c && setConfig(c))
+      // Merge onto the defaults so a partial/unexpected payload can never leave
+      // required fields (e.g. weights) undefined and crash the recalc math.
+      .then(c => c && setConfig({ ...DEFAULT_CONFIG, ...c }))
       .catch(() => {});
     void fetchPredictions();
   }, [userId, fetchPredictions]);
@@ -253,7 +255,24 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       return;
     }
 
-    if (tooFarDays.length > 0) return;
+    // A blocking error (e.g. dates too far in the future) is shown by the "!"
+    // symbol; clicking Recalculate surfaces that same message in the dialog
+    // instead of failing silently.
+    if (activeMessage?.severity === 'error') {
+      setMsgOpen(true);
+      return;
+    }
+    // A warning (values out of the usual range) isn't blocking, but we confirm
+    // first: the dialog offers Cancel / Recalculate anyway.
+    if (activeMessage?.severity === 'warning') {
+      setMsgOpen(true);
+      return;
+    }
+    runRecalculate();
+  };
+
+  const runRecalculate = async () => {
+    setMsgOpen(false);
     setRecalcError('');
     setRecalculating(true);
     try {
@@ -401,20 +420,17 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
               <span className="recalc-unit">days</span>
             </div>
           </div>
-          <div
-            className={`recalc-msg${activeMessage ? ` active ${activeMessage.severity}` : ''}${msgOpen ? ' open' : ''}`}
-            onMouseLeave={() => setMsgOpen(false)}
-          >
+          <div className={`recalc-msg${activeMessage ? ` active ${activeMessage.severity}` : ''}`}>
             <button
               type="button"
               className="recalc-msg-icon"
-              onClick={() => setMsgOpen(o => !o)}
-              aria-label="Show validation message"
+              onClick={() => activeMessage && setMsgOpen(true)}
+              title={activeMessage?.text}
+              aria-label={activeMessage ? `${activeMessage.severity}: show details` : undefined}
               tabIndex={activeMessage ? 0 : -1}
             >
               !
             </button>
-            {activeMessage && <div className="recalc-popover" role="alert">{activeMessage.text}</div>}
           </div>
           <button className="recalc-button" onClick={handleRecalculate} disabled={recalculating || savingImport}>
             {recalculating ? 'Recalculating…' : 'Recalculate'}
@@ -442,8 +458,12 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       </div>
 
       <div className="calendar-header">
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}>
-          ← Previous
+        <button
+          className="month-nav"
+          aria-label="Previous month"
+          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+        >
+          ‹
         </button>
         <div className="calendar-title">
           <h2>{monthName}</h2>
@@ -456,8 +476,12 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
             ↩ Today
           </button>
         </div>
-        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}>
-          Next →
+        <button
+          className="month-nav"
+          aria-label="Next month"
+          onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+        >
+          ›
         </button>
       </div>
 
@@ -481,6 +505,36 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
         <div className="legend-item period-mark tier-1"><BloodDropIcon /> Future Predicted</div>
         <div className="legend-item"><span className="calc-badge inline">✎</span> Auto-filled</div>
       </div>
+
+      {msgOpen && activeMessage && (
+        <div className="msg-modal-backdrop" role="presentation" onClick={() => setMsgOpen(false)}>
+          <div
+            className={`msg-modal ${activeMessage.severity}`}
+            role="alertdialog"
+            aria-modal="true"
+            onClick={e => e.stopPropagation()}
+          >
+            <h3 className="msg-modal-title">
+              {activeMessage.severity === 'error' ? 'Can’t recalculate yet' : 'Heads up'}
+            </h3>
+            <p className="msg-modal-text">{activeMessage.text}</p>
+            {activeMessage.severity === 'warning' ? (
+              <div className="msg-modal-actions">
+                <button type="button" className="msg-modal-cancel" onClick={() => setMsgOpen(false)}>
+                  Cancel
+                </button>
+                <button type="button" className="msg-modal-close" onClick={runRecalculate}>
+                  Recalculate anyway
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="msg-modal-close" onClick={() => setMsgOpen(false)}>
+                Got it
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

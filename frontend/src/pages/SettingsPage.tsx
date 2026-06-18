@@ -112,7 +112,7 @@ function SettingsPage() {
             </label>
           )}
 
-          <label className="settings-row" title="Get an email when a new version of ThoseDays is released. You can turn this off any time, including from a link in the email.">
+          <label className="settings-row" title="Get an email when a new version of Rosella Rhythm is released. You can turn this off any time, including from a link in the email.">
             <input
               type="checkbox"
               checked={prefs?.notifyReleases ?? false}
@@ -122,7 +122,7 @@ function SettingsPage() {
             <span className="settings-row-label">
               Email me about new versions
               <span className="settings-row-help">
-                A short note when ThoseDays is updated. Nothing else — and no data leaves the app.
+                A short note when Rosella Rhythm is updated. Nothing else — and no data leaves the app.
               </span>
             </span>
           </label>

@@ -87,7 +87,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>ThoseDaysApp</h1>
+        <h1>Rosella Rhythm</h1>
         <p className="login-subtitle">Track and predict your cycle</p>
 
         <form onSubmit={handleSubmit} className="login-form">
