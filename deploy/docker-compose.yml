@@ -60,9 +60,6 @@ services:
       OIDC_AUTHORITY: ${OIDC_AUTHORITY}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE}
-      # TEMPORARY escape hatch: link OIDC logins to existing accounts by UNVERIFIED email.
-      # Leave false once the IdP verifies emails, or duplicate accounts appear on cutover.
-      OIDC_LINK_ALLOW_UNVERIFIED_EMAIL: ${OIDC_LINK_ALLOW_UNVERIFIED_EMAIL:-false}
       # Structured logs -> Seq (internal). UI is published below per stack.
       SEQ_URL: http://seq
     ports:
