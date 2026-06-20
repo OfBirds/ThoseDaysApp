@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '../lib/api';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
 import {
@@ -123,7 +124,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
 
   const fetchPredictions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/user/${userId}/predictions`);
+      const res = await apiFetch(`/api/user/${userId}/predictions`);
       if (res.ok) setPredictions(await res.json());
     } catch (e) {
       console.error('Error fetching predictions:', e);
@@ -218,7 +219,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     setRecalcError('');
     setSavingImport(true);
     try {
-      const res = await fetch(`/api/user/${userId}/import`, {
+      const res = await apiFetch(`/api/user/${userId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ schemaVersion: pendingImport.schemaVersion, cycles: pendingImport.cycles }),
@@ -276,7 +277,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     setRecalcError('');
     setRecalculating(true);
     try {
-      const res = await fetch(`/api/user/${userId}/recalculate`, {
+      const res = await apiFetch(`/api/user/${userId}/recalculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -22,7 +22,7 @@ ThoseDaysApp is made primarily to be **self-hosted**: cycle data is about as per
 - **Offline Support**: Works offline with cached data (PWA)
 - **Responsive Design**: Mobile-friendly design with touch support
 - **Light & Dark Themes**: Theme toggle; palette driven by CSS variables
-- **Authentication**: Basic auth with password hashing
+- **Authentication**: CrimsonRaven (Zitadel) SSO, with local email/password as a break-glass fallback ([docs](docs/auth-crimsonraven.md))
 - **WCAG AA Compliant**: Accessible with proper color contrast and icons
 
 ## Tech Stack
@@ -135,6 +135,7 @@ Deeper docs live in [`docs/`](docs/):
 - [infrastructure.md](docs/infrastructure.md) — CI/CD and self-hosted staging/prod setup
 - [deploy-runbook.md](docs/deploy-runbook.md) — one-time homelab VM setup for auto-deploy
 - [testing.md](docs/testing.md) — what each test suite covers and the CI gate
+- [auth-crimsonraven.md](docs/auth-crimsonraven.md) — CrimsonRaven SSO (dual-auth) + ownership enforcement
 
 **Feature design**
 

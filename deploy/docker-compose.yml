@@ -51,6 +51,18 @@ services:
       SMTP_FROM: ${SMTP_FROM}
       SMTP_PASS: ${SMTP_PASS}
       SMTP_ACCEPT_ALL_CERTS: ${SMTP_ACCEPT_ALL_CERTS}
+      # Signed-JWT auth for the local (break-glass) login. JWT_SIGNING_KEY is REQUIRED in
+      # deploy stacks (>=32 chars); blank mints an ephemeral key (logs everyone out on restart).
+      JWT_SIGNING_KEY: ${JWT_SIGNING_KEY}
+      JWT_EXPIRY_DAYS: ${JWT_EXPIRY_DAYS}
+      # CrimsonRaven SSO (OIDC). Blank OIDC_AUTHORITY → SSO off, local login only (dual-auth;
+      # the local path is the backup). See docs/auth-crimsonraven.md.
+      OIDC_AUTHORITY: ${OIDC_AUTHORITY}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE}
+      # TEMPORARY escape hatch: link OIDC logins to existing accounts by UNVERIFIED email.
+      # Leave false once the IdP verifies emails, or duplicate accounts appear on cutover.
+      OIDC_LINK_ALLOW_UNVERIFIED_EMAIL: ${OIDC_LINK_ALLOW_UNVERIFIED_EMAIL:-false}
       # Structured logs -> Seq (internal). UI is published below per stack.
       SEQ_URL: http://seq
     ports:

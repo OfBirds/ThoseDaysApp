@@ -1,26 +1,32 @@
 using Api.DTOs;
 using Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Api.Controllers;
 
+/// <summary>
+/// The local (break-glass) email/password login. Anonymous by design — the dual-auth
+/// front door is CrimsonRaven (OIDC); this path issues the app's own signed JWT and is the
+/// fallback used when the IdP is offline or unconfigured. See docs/auth-crimsonraven.md.
+/// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController(IAuthService authService) : ControllerBase
+[AllowAnonymous]
+public class AuthController(IAuthService authService, ITokenService tokenService) : ControllerBase
 {
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register([FromBody] RegisterRequest request)
     {
         var user = await authService.RegisterAsync(request.Email, request.Password);
         if (user == null)
-            return BadRequest(new { error = "Registration failed" });
+            return BadRequest(new { error = "Registration failed. " + AuthService.PasswordPolicyMessage });
 
-        var token = GenerateSimpleToken(user.Id);
         return Ok(new AuthResponse
         {
             UserId = user.Id,
             Email = user.Email,
-            Token = token,
+            Token = tokenService.CreateToken(user.Id, user.Email),
             NotifyReleases = user.NotifyReleases
         });
     }
@@ -32,12 +38,11 @@ public class AuthController(IAuthService authService) : ControllerBase
         if (user == null)
             return Unauthorized(new { error = "Invalid email or password" });
 
-        var token = GenerateSimpleToken(user.Id);
         return Ok(new AuthResponse
         {
             UserId = user.Id,
             Email = user.Email,
-            Token = token,
+            Token = tokenService.CreateToken(user.Id, user.Email),
             NotifyReleases = user.NotifyReleases
         });
     }
@@ -47,15 +52,8 @@ public class AuthController(IAuthService authService) : ControllerBase
     {
         var success = await authService.ResetPasswordAsync(request.Email, request.NewPassword);
         if (!success)
-            return BadRequest(new { error = "Password reset failed. Check your email and ensure password is at least 8 characters." });
+            return BadRequest(new { error = "Password reset failed. " + AuthService.PasswordPolicyMessage });
 
         return Ok(new { message = "Password reset successful" });
-    }
-
-    private static string GenerateSimpleToken(Guid userId)
-    {
-        var tokenData = $"{userId}:{DateTime.UtcNow.Ticks}";
-        var tokenBytes = System.Text.Encoding.UTF8.GetBytes(tokenData);
-        return Convert.ToBase64String(tokenBytes);
     }
 }

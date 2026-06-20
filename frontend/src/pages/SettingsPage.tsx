@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import DataSection from '../components/DataSection';
 import '../styles/settings.css';
@@ -24,7 +25,7 @@ function SettingsPage() {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch(`/api/user/${user.id}/prefs`);
+        const res = await apiFetch(`/api/user/${user.id}/prefs`);
         if (!res.ok) throw new Error('load failed');
         const data = (await res.json()) as Prefs;
         if (alive) setPrefs(data);
@@ -46,7 +47,7 @@ function SettingsPage() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/user/${user.id}/prefs`, {
+      const res = await apiFetch(`/api/user/${user.id}/prefs`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(next),

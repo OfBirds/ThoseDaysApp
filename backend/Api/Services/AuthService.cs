@@ -16,6 +16,10 @@ public interface IAuthService
 
 public class AuthService(AppDbContext context) : IAuthService
 {
+    /// <summary>User-facing description of the password policy enforced below.</summary>
+    public const string PasswordPolicyMessage =
+        "Password must be at least 8 characters and include a letter, a number, and a special character.";
+
     public async Task<User?> RegisterAsync(string email, string password)
     {
         if (!await ValidatePasswordAsync(password))
@@ -44,7 +48,8 @@ public class AuthService(AppDbContext context) : IAuthService
         if (user == null)
             return null;
 
-        if (!VerifyPassword(password, user.PasswordHash))
+        // OIDC-only accounts have no local password — they must sign in via CrimsonRaven.
+        if (string.IsNullOrEmpty(user.PasswordHash) || !VerifyPassword(password, user.PasswordHash))
             return null;
 
         return user;
@@ -64,15 +69,22 @@ public class AuthService(AppDbContext context) : IAuthService
         return true;
     }
 
-    public Task<bool> ValidatePasswordAsync(string password)
+    public Task<bool> ValidatePasswordAsync(string password) =>
+        Task.FromResult(IsPasswordValid(password));
+
+    /// <summary>
+    /// Password policy: at least 8 characters and contains a letter, a digit, and a
+    /// special (non-alphanumeric) character. Kept in sync with <see cref="PasswordPolicyMessage"/>
+    /// and the live checklist on the registration form.
+    /// </summary>
+    public static bool IsPasswordValid(string password)
     {
-        if (string.IsNullOrWhiteSpace(password))
-            return Task.FromResult(false);
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+            return false;
 
-        if (password.Length < 8)
-            return Task.FromResult(false);
-
-        return Task.FromResult(true);
+        return password.Any(char.IsLetter)
+            && password.Any(char.IsDigit)
+            && password.Any(c => !char.IsLetterOrDigit(c));
     }
 
     private static string HashPassword(string password)

@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { getFontScale, saveFontScale } from './lib/storage';
+import { apiFetch } from './lib/api';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import Calendar from './components/Calendar';
 import StatusBar from './components/StatusBar';
 import BloodDropIcon from './components/BloodDropIcon';
@@ -77,6 +79,7 @@ function FontSizeControl() {
 
 function AppContent() {
   const { user, logout } = useAuth();
+  const location = useLocation();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [nextPeriod, setNextPeriod] = useState<{ startIso: string; daysUntil: number; rangeLabel: string | null } | null>(null);
@@ -91,7 +94,7 @@ function AppContent() {
   // On load: catch up any elapsed forecasts (auto-fill), then load data.
   const reconcileThenFetch = async () => {
     try {
-      await fetch(`/api/user/${user!.id}/reconcile?today=${localDateString(new Date())}`, {
+      await apiFetch(`/api/user/${user!.id}/reconcile?today=${localDateString(new Date())}`, {
         method: 'POST'
       });
     } catch (error) {
@@ -104,8 +107,8 @@ function AppContent() {
     try {
       setLoading(true);
       const [cyclesRes, statsRes] = await Promise.all([
-        fetch(`/api/user/${user!.id}/cycles`),
-        fetch(`/api/user/${user!.id}/stats`)
+        apiFetch(`/api/user/${user!.id}/cycles`),
+        apiFetch(`/api/user/${user!.id}/stats`)
       ]);
 
       if (cyclesRes.ok) setCycles(await cyclesRes.json());
@@ -116,6 +119,12 @@ function AppContent() {
       setLoading(false);
     }
   };
+
+  // The OIDC redirect lands on /auth/callback before a session exists — complete the code
+  // exchange there (it stores the session and navigates home) rather than showing LoginPage.
+  if (location.pathname === '/auth/callback') {
+    return <AuthCallbackPage />;
+  }
 
   if (!user) {
     return <LoginPage onLoginSuccess={() => {}} />;

@@ -22,7 +22,9 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Email).IsRequired();
-            entity.Property(e => e.PasswordHash).IsRequired();
+            // PasswordHash is nullable: OIDC (CrimsonRaven) accounts have no local password.
+            // ExternalSubject is the linked IdP subject — unique when set (filtered index).
+            entity.HasIndex(e => e.ExternalSubject).IsUnique();
             entity.HasMany(e => e.Cycles)
                 .WithOne(c => c.User)
                 .HasForeignKey(c => c.UserId)

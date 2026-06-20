@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { apiFetch } from '../lib/api';
 import { Link } from 'react-router-dom';
 import { addDaysIso } from '../lib/predictions';
 import {
@@ -31,7 +32,7 @@ export default function DataSection({ userId }: { userId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch(`/api/user/${userId}/cycles`)
+    apiFetch(`/api/user/${userId}/cycles`)
       .then((r) => (r.ok ? r.json() : []))
       .then((c: CycleResponse[]) => setCycles([...c].sort((a, b) => dayOf(a.startDate).localeCompare(dayOf(b.startDate)))))
       .catch(() => {});
@@ -53,15 +54,25 @@ export default function DataSection({ userId }: { userId: string }) {
     };
   })();
 
-  const doExport = () => {
+  const doExport = async () => {
     const url =
       scope === 'patch' ? `/api/user/${userId}/export?cycles=${count}` : `/api/user/${userId}/export`;
+    // Authenticated download: an <a href> navigation can't carry the bearer token, so fetch
+    // the file with apiFetch and save the blob, honouring the server's Content-Disposition name.
+    const res = await apiFetch(url);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') ?? '';
+    const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+    const fileName = match ? decodeURIComponent(match[1]) : 'thosedays-export.json';
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = '';
+    a.href = objectUrl;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(objectUrl);
   };
 
   const onFile = async (file: File) => {

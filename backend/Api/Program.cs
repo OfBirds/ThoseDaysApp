@@ -1,6 +1,13 @@
+using Api.Authorization;
 using Api.Data;
 using Api.Services;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -63,7 +70,128 @@ if (!string.IsNullOrWhiteSpace(otlpEndpoint))
 builder.Services.Configure<Api.Config.RecalcConfig>(builder.Configuration.GetSection("Recalc"));
 
 builder.Services.AddOpenApi();
-builder.Services.AddControllers();
+builder.Services.AddControllers(o => o.Filters.Add<ResourceOwnershipFilter>());
+
+// IHttpClientFactory — used by ConfigController (IdP liveness/logo) and OidcUserProvisioner
+// (userinfo lookup).
+builder.Services.AddHttpClient();
+
+// Signed-JWT auth for the local (break-glass) login. The signing key follows the flat-env
+// convention (JWT_SIGNING_KEY); when unset we mint an ephemeral random key so local dev needs
+// no setup — tokens just don't survive a restart, and a warning fires. A real key MUST be set
+// in deploy stacks.
+var jwtKeyRaw = builder.Configuration["JWT_SIGNING_KEY"];
+byte[] jwtKeyBytes;
+if (string.IsNullOrWhiteSpace(jwtKeyRaw))
+{
+    jwtKeyBytes = RandomNumberGenerator.GetBytes(32);
+    Log.Warning("JWT_SIGNING_KEY not set — using an ephemeral signing key. Tokens are " +
+        "invalidated on restart; set JWT_SIGNING_KEY (>=32 chars) before deploying.");
+}
+else
+{
+    jwtKeyBytes = Encoding.UTF8.GetBytes(jwtKeyRaw);
+    if (jwtKeyBytes.Length < 32)
+        throw new InvalidOperationException(
+            "JWT_SIGNING_KEY must be at least 32 bytes (256 bits) for HMAC-SHA256.");
+}
+var jwtSigningKey = new SymmetricSecurityKey(jwtKeyBytes);
+var jwtExpiryDays = int.TryParse(builder.Configuration["JWT_EXPIRY_DAYS"], out var ed) && ed > 0 ? ed : 30;
+builder.Services.AddSingleton<ITokenService>(
+    new JwtTokenService(jwtSigningKey, TimeSpan.FromDays(jwtExpiryDays)));
+
+// Dual-scheme auth for the CrimsonRaven migration (docs/auth-crimsonraven.md):
+//   "ThoseDays"    — the self-issued HMAC JWT (sub = ThoseDays User.Id); the backup path.
+//   "CrimsonRaven" — OIDC access tokens validated against the IdP's JWKS (OIDC_AUTHORITY),
+//                    mapped onto a ThoseDays User by OidcUserProvisioner.
+// The default "smart" policy scheme peeks the bearer's `iss` and forwards to whichever
+// validator matches, so one Authorization header works for both. OIDC is opt-in: when
+// OIDC_AUTHORITY is unset (e.g. a stack without an IdP yet) only the local scheme runs.
+const string LocalScheme = "ThoseDays";
+const string OidcScheme = "CrimsonRaven";
+
+var oidcAuthority = builder.Configuration["OIDC_AUTHORITY"];   // e.g. https://raven-staging.bearsoft.duckdns.org
+var oidcAudience = builder.Configuration["OIDC_AUDIENCE"];     // expected `aud` in the access token
+var oidcEnabled = !string.IsNullOrWhiteSpace(oidcAuthority);
+
+var authBuilder = builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "smart";
+    options.DefaultChallengeScheme = "smart";
+});
+
+authBuilder.AddPolicyScheme("smart", "ThoseDays or CrimsonRaven (by token issuer)", options =>
+{
+    options.ForwardDefaultSelector = ctx =>
+    {
+        if (oidcEnabled)
+        {
+            string authHeader = ctx.Request.Headers.Authorization!;
+            if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var token = new JsonWebTokenHandler().ReadJsonWebToken(authHeader["Bearer ".Length..].Trim());
+                    if (string.Equals(token.Issuer, oidcAuthority, StringComparison.OrdinalIgnoreCase))
+                        return OidcScheme;
+                }
+                catch { /* unreadable token → let the local validator reject it */ }
+            }
+        }
+        return LocalScheme;
+    };
+});
+
+authBuilder.AddJwtBearer(LocalScheme, options =>
+{
+    options.MapInboundClaims = false; // keep `sub` as `sub`, don't remap to NameIdentifier
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidIssuer = JwtTokenService.Issuer,
+        ValidateAudience = true,
+        ValidAudience = JwtTokenService.Audience,
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = jwtSigningKey,
+        ValidateLifetime = true,
+        NameClaimType = JwtRegisteredClaimNames.Sub,
+    };
+});
+
+if (oidcEnabled)
+{
+    authBuilder.AddJwtBearer(OidcScheme, options =>
+    {
+        options.Authority = oidcAuthority;
+        // homelab :9100 is http; the staging/prod instances are https.
+        options.RequireHttpsMetadata = oidcAuthority!.StartsWith("https", StringComparison.OrdinalIgnoreCase);
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = oidcAuthority,
+            ValidateAudience = !string.IsNullOrWhiteSpace(oidcAudience),
+            ValidAudience = oidcAudience,
+            ValidateLifetime = true,
+            NameClaimType = JwtRegisteredClaimNames.Sub,
+        };
+    });
+
+    // Maps a CrimsonRaven identity onto a ThoseDays User (link-by-verified-email) and rewrites
+    // `sub` to the ThoseDays User.Id so ResourceOwnershipFilter + routes stay unchanged.
+    // Needs HttpContext (for the bearer) to resolve email from the IdP userinfo endpoint.
+    builder.Services.AddHttpContextAccessor();
+    builder.Services.AddScoped<IClaimsTransformation, OidcUserProvisioner>();
+}
+
+// Locked-down by default: every endpoint requires auth unless it opts out with
+// [AllowAnonymous] (auth, version, unsubscribe, config) or .AllowAnonymous() (SPA fallback).
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 var connectionString = $"Host={builder.Configuration["DB_HOST"] ?? "localhost"};" +
     $"Port={builder.Configuration["DB_PORT"] ?? "5432"};" +
@@ -107,15 +235,17 @@ app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
 }
 
 // Serve the bundled SPA (built frontend copied into wwwroot) and fall back to
 // index.html for client-side routes. API controllers are matched first; the
 // fallback only handles non-/api, non-file requests.
 app.UseStaticFiles();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html").AllowAnonymous();
 
 try
 {

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useOidcLogo } from '../hooks/useOidcLogo';
 import '../styles/login.css';
 
 function EyeIcon({ visible }: { visible: boolean }) {
@@ -23,17 +24,65 @@ interface LoginPageProps {
 
 type View = 'login' | 'register' | 'forgot';
 
+// Kept in sync with the backend policy in AuthService.IsPasswordValid.
+const PASSWORD_RULES: { label: string; test: (p: string) => boolean }[] = [
+  { label: 'At least 8 characters', test: (p) => p.length >= 8 },
+  { label: 'One letter', test: (p) => /[a-zA-Z]/.test(p) },
+  { label: 'One number', test: (p) => /[0-9]/.test(p) },
+  { label: 'One special character', test: (p) => /[^a-zA-Z0-9]/.test(p) },
+];
+
+function PasswordRequirements({ value }: { value: string }) {
+  return (
+    <ul className="pw-reqs" aria-label="Password requirements">
+      {PASSWORD_RULES.map((rule) => {
+        const met = rule.test(value);
+        return (
+          <li key={rule.label} className={met ? 'pw-req met' : 'pw-req'}>
+            <span aria-hidden="true">{met ? '✓' : '○'}</span> {rule.label}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+const SUBTITLES: Record<View, string> = {
+  login: 'Track and predict your cycle',
+  register: 'Create your account',
+  forgot: 'Reset your password',
+};
+
+function viewFromHash(): View {
+  const h = window.location.hash;
+  if (h === '#register') return 'register';
+  if (h === '#forgot') return 'forgot';
+  return 'login';
+}
+
 function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
-  const [view, setView] = useState<View>('login');
+  const [view, setView] = useState<View>(viewFromHash);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, register } = useAuth();
+  const { login, register, loginWithSSO, ssoOnline, ssoConfigured, authReady } = useAuth();
+
+  // CrimsonRaven is the front door: when it's online, send the user straight there — no
+  // choice. The legacy email/password form below is only reached when Raven is down or
+  // unconfigured (break-glass / local dev).
+  useEffect(() => {
+    if (!authReady || !ssoOnline) return;
+    loginWithSSO().catch((err) =>
+      setError(err instanceof Error ? err.message : 'Could not reach CrimsonRaven.'));
+  }, [authReady, ssoOnline, loginWithSSO]);
+
+  // CrimsonRaven's own logo (themed), pulled live from the IdP — shown on the redirect screen.
+  const logoSrc = useOidcLogo();
 
   const resetForm = () => {
     setError('');
@@ -45,6 +94,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const switchView = (v: View) => {
     resetForm();
     setView(v);
+    window.location.hash = v === 'login' ? '' : v;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -84,11 +134,44 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   };
 
+  // Until we know whether CrimsonRaven is up — or while bouncing to it — show a spinner,
+  // never the legacy form (no flash, and SSO is the only path when Raven is online).
+  if (!authReady || ssoOnline) {
+    return (
+      <div className="login-page">
+        <div className="login-container">
+          <h1>Rosella Rhythm</h1>
+          {error ? (
+            <>
+              <p className="error-message">{error}</p>
+              <button type="button" className="submit-button"
+                onClick={() => { setError(''); loginWithSSO().catch((e) => setError(e instanceof Error ? e.message : 'Could not reach CrimsonRaven.')); }}>
+                Try again
+              </button>
+            </>
+          ) : (
+            <>
+              {ssoOnline && logoSrc && <img src={logoSrc} alt="CrimsonRaven" className="redirect-logo" />}
+              <p className="login-subtitle">{ssoOnline ? 'Redirecting to CrimsonRaven…' : 'Loading…'}</p>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Legacy email/password — reached only when CrimsonRaven is down or not configured here.
   return (
     <div className="login-page">
       <div className="login-container">
         <h1>Rosella Rhythm</h1>
-        <p className="login-subtitle">Track and predict your cycle</p>
+        {ssoConfigured && (
+          <div className="maintenance-note">
+            <strong>CrimsonRaven is offline.</strong> Sign in or register with the same email to
+            reach your data until it's back.
+          </div>
+        )}
+        <p className="login-subtitle">{SUBTITLES[view]}</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
@@ -119,6 +202,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <EyeIcon visible={showPassword} />
                 </button>
               </div>
+              {view === 'register' && <PasswordRequirements value={password} />}
             </div>
           )}
 
@@ -139,6 +223,7 @@ function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   <EyeIcon visible={showNewPassword} />
                 </button>
               </div>
+              <PasswordRequirements value={newPassword} />
             </div>
           )}
 
