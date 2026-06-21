@@ -1,5 +1,6 @@
 ### What's new
 
-- **Say hello to Rosella Rhythm** — the app has a name and a fresh blossom icon. Add it to your home screen to see the new look.
-- **The calendar fits your phone now** — the month grid no longer runs off the edge, so Saturday and Sunday stay on screen. Tidier spacing on small screens, and the month arrows are now compact round buttons.
-- **Clearer recalculate messages** — when something needs your attention, hover the **!** for a quick tip or tap it for a full explanation in a clean pop-up. If your cycle or period length looks unusual, Recalculate now asks you to confirm before continuing instead of silently skipping.
+- **Sign in with single sign-on** — you can now log in with your single sign-on (SSO) account for a faster, more secure sign-in. Email and password still works as a fallback whenever SSO isn't available.
+- **Safer accounts** — new sign-ups confirm their email address before the first login, and your data stays tied to your own account.
+- **A friendly face on every screen** — the Rosella logo now sits at the bottom of the app, and it adapts to both light and dark themes.
+- **A more consistent look** — the Calendar, Statistics, and Settings pages now line up to the same width, and the Statistics and Settings headings match.
