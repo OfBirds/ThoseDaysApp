@@ -89,7 +89,7 @@ function StatsPage() {
   if (periods.length === 0) {
     return (
       <div className="stats-page">
-        <h1>Statistics</h1>
+        <h1 className="page-title">Statistics</h1>
         <p className="chart-empty">No cycles logged yet. Add a few on the calendar and your stats will appear here.</p>
       </div>
     );
@@ -104,7 +104,7 @@ function StatsPage() {
 
   return (
     <div className="stats-page">
-      <h1>Statistics</h1>
+      <h1 className="page-title">Statistics</h1>
 
       {/* KPI cards */}
       <section className="kpi-grid">

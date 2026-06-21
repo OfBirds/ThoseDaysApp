@@ -66,7 +66,7 @@ function SettingsPage() {
 
   return (
     <div className="settings-page">
-      <h1 className="settings-title">Settings</h1>
+      <h1 className="page-title">Settings</h1>
 
       {loading ? (
         <p className="settings-muted">Loading your settings…</p>

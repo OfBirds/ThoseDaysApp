@@ -136,6 +136,7 @@ Deeper docs live in [`docs/`](docs/):
 - [deploy-runbook.md](docs/deploy-runbook.md) — one-time homelab VM setup for auto-deploy
 - [testing.md](docs/testing.md) — what each test suite covers and the CI gate
 - [auth-crimsonraven.md](docs/auth-crimsonraven.md) — CrimsonRaven SSO (dual-auth) + ownership enforcement
+- [frontend-preview-without-backend.md](docs/frontend-preview-without-backend.md) — preview authed/data screens by faking login + stubbing the API in the browser
 
 **Feature design**
 

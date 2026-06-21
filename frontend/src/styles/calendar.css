@@ -1,3 +1,10 @@
+/* Shared page width for every main screen (Calendar / Stats / Settings) so they line
+   up. Outer gutter comes from .app-main; pages add no padding of their own. */
+.calendar-page {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
 .calendar {
   background: var(--surface);
   border-radius: 8px;
@@ -340,6 +347,10 @@
   font-size: 1.4rem;
   line-height: 1;
   transition: opacity 0.2s, transform 0.1s;
+  /* Keep the nav arrows above any sibling that could ever overlap them, so their
+     full hit-area always stays clickable. */
+  position: relative;
+  z-index: 1;
 }
 
 .calendar-header button.month-nav:hover {
