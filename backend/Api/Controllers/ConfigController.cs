@@ -55,6 +55,10 @@ public class ConfigController(
         payload["oidcClientId"] = config["OIDC_CLIENT_ID"];
         payload["oidcLogoUrl"] = _logoUrl;
         payload["oidcLogoUrlDark"] = _logoUrlDark;
+        // Login mode: 'crimsonraven' (default) → CR only; 'legacy' → the app's email/password form only.
+        // A manual env break-glass (AUTH_MODE=legacy) for CR maintenance — never both at once.
+        payload["authMode"] = string.Equals(config["AUTH_MODE"], "legacy", StringComparison.OrdinalIgnoreCase)
+            ? "legacy" : "crimsonraven";
         return Ok((object)payload);
     }
 

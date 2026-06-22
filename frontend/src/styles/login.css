@@ -1,3 +1,11 @@
+/* auth-core <AuthScreen> theming — reuse the app's brand (--primary, Rosella coral). */
+.bsa-screen {
+  --auth-brand: var(--primary);
+  --auth-accent: var(--primary);
+  --auth-brand-fg: #fff;
+  --auth-accent-fg: #fff;
+}
+
 .login-page {
   display: flex;
   align-items: center;
