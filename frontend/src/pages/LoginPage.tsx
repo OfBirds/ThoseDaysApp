@@ -7,18 +7,10 @@ interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
-// The login screen is now the shared auth-core <AuthScreen> (Split-panel): brand panel + CrimsonRaven
-// "Sign in" + the unverified-email verify card. The app injects only its copy/logo + palette (login.css),
-// and its rich legacy email/password form as the maintenance-only `legacy` slot.
+// In CrimsonRaven mode this just bounces to Keycloak (which hosts the themed Rosella login,
+// registration, verify-email and forgot-password pages) and shows a brief "Signing you in…". The app
+// only supplies its palette (login.css) and the legacy email/password form as the break-glass `legacy`
+// slot, shown when AUTH_MODE=legacy.
 export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  return (
-    <AuthScreen
-      copy={{
-        appName: 'Rosella Rhythm',
-        tagline: 'Track and predict your cycle',
-        logoUrl: '/rosella-dark.png',
-      }}
-      legacy={<LegacyLoginForm onSuccess={onLoginSuccess} />}
-    />
-  );
+  return <AuthScreen legacy={<LegacyLoginForm onSuccess={onLoginSuccess} />} />;
 }
