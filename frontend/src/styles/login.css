@@ -1,9 +1,14 @@
-/* auth-core <AuthScreen> theming — reuse the app's brand (--primary, Rosella coral). */
+/* auth-core <AuthScreen> theming — reuse the app's palette so it follows light/dark ([data-theme])
+ * and the Rosella coral brand. Only these vars + the logo are injected; structure comes from the lib. */
 .bsa-screen {
   --auth-brand: var(--primary);
   --auth-accent: var(--primary);
   --auth-brand-fg: #fff;
   --auth-accent-fg: #fff;
+  --auth-bg: var(--bg);
+  --auth-fg: var(--text);
+  --auth-muted: var(--text-light);
+  --auth-border: color-mix(in srgb, var(--text) 22%, transparent);
 }
 
 .login-page {
