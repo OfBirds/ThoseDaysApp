@@ -1,6 +1,15 @@
-### What's new
+### What's new in 1.4
 
-- **Sign in with single sign-on** — you can now log in with your single sign-on (SSO) account for a faster, more secure sign-in. Email and password still works as a fallback whenever SSO isn't available.
-- **Safer accounts** — new sign-ups confirm their email address before the first login, and your data stays tied to your own account.
-- **A friendly face on every screen** — the Rosella logo now sits at the bottom of the app, and it adapts to both light and dark themes.
-- **A more consistent look** — the Calendar, Statistics, and Settings pages now line up to the same width, and the Statistics and Settings headings match.
+- **We've upgraded sign-in and account security to the latest standards.** ThoseDays now uses
+  a rebuilt, more secure login — with email verification, password reset and "resend
+  confirmation" all built in.
+
+- **Please sign in again — and register with the same email.** Because the login system was
+  upgraded, your previous password won't carry over. On the sign-in screen choose **Register**
+  and use the **same email address** you used before. Signing up with the same email
+  automatically reconnects your calendar and history — none of your data is lost.
+
+- **Email verification is now required.** You'll confirm your email before your first sign-in.
+  If the message doesn't arrive, use the **Resend** link right on the verification screen.
+
+- **Forgot your password?** You can now reset it yourself, straight from the login page.
