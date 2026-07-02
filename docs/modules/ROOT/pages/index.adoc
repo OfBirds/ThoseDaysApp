@@ -1,0 +1,51 @@
+= What is Rosella Rhythm?
+
+Rosella Rhythm is a free, open-source *menstrual-cycle tracker* that you run on
+your own server. Log your period start dates, and it learns your rhythm:
+a calendar of past and predicted periods, a countdown to the next one, and
+statistics about your cycle over time.
+
+It is part of the https://ofbirds.org[ofbirds.org] flock, and it follows the
+flock's rules:
+
+* *Always self-hostable.* You install it on a machine you control — a home
+  server, a NAS, a small VPS. There is no hosted version to sign up for.
+* *Your data stays yours.* Cycle data is about as personal as data gets. With
+  Rosella Rhythm, the database lives on your server and never leaves it.
+* *Money is optional.* The app is free and open source (AGPL). Donate if it
+  helped you; otherwise you only pay for whatever box you run it on.
+
+== What it does
+
+* *Track cycles* — log period start dates and how long each period lasted.
+* *Predict what's next* — the app projects your upcoming periods (15 cycles
+  ahead) from your average cycle interval, and shows a "next period in N days"
+  countdown.
+* *Calendar view* — a month calendar with color-coded period marks, a marker
+  for today, and a countdown badge on the predicted next period.
+* *Statistics* — a dedicated stats page with cycle-length charts, a period-
+  duration view, a length-distribution histogram, a year heatmap of period
+  days, and prediction-accuracy tracking.
+* *Email reminders (optional)* — if you connect an email account, the app can
+  send you an opt-in reminder before a predicted period, and a note when a new
+  app version is released.
+* *Works offline* — it is a progressive web app (PWA): add it to your phone's
+  home screen and it keeps working with cached data even without a connection.
+* *Comfortable to use* — mobile-friendly, light and dark themes, and WCAG AA
+  accessible.
+
+== What to expect
+
+The app is intentionally simple: it tracks dates, not symptoms, moods, or
+temperatures. Predictions are statistical averages of *your* history — the
+more cycles you log, the better they get. Accounts are protected by a
+password; each person's data is their own.
+
+== Ready to try it?
+
+Head to the xref:self-hosting.adoc[self-hosting quick start] — if you have
+Docker on a machine somewhere, you are about ten minutes away from a running
+app.
+
+The source code, issue tracker, and release notes live on
+https://github.com/Trifunovich/ThoseDaysApp[GitHub].

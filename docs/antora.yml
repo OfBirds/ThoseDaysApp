@@ -1,0 +1,8 @@
+name: rosella
+title: Rosella Rhythm
+# Unversioned while the docs site bootstraps. From the first release that
+# contains this file onward, set an explicit version (e.g. '1.3') so the
+# docs site can offer per-release docs pulled from tags.
+version: ~
+nav:
+- modules/ROOT/nav.adoc
