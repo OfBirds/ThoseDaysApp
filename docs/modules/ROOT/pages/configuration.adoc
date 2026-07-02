@@ -67,14 +67,25 @@ features stay silently off when these are unset.
   your own LAN. Leave `false` otherwise.
 |===
 
-== Logging (optional)
+== Logs & traces (optional)
+
+The app always logs to the container's console (`docker compose logs app`) and
+to a rolling file inside the container — you don't need any of this. Set these
+only if you want logs/traces in your own observability stack.
 
 [cols="1,3"]
 |===
 | Variable | What it does
 
 | `SEQ_URL`
-| Address of a https://datalust.co/seq[Seq] server to ship structured logs to.
-  Leave unset if you don't run one — the app logs to the container's console
-  either way (`docker compose logs app`).
+| Address of a https://datalust.co/seq[Seq] server to ship structured logs to
+  (e.g. `http://seq`). When set, traces are also sent to the same Seq via OTLP
+  automatically.
+
+| `OTEL_EXPORTER_OTLP_ENDPOINT`
+| Send traces (OpenTelemetry) to any OTLP collector instead — Jaeger, Grafana
+  Tempo/Alloy, an OTel Collector, etc. Give the *full* HTTP (protobuf) traces
+  URL including the signal path, e.g. `http://collector:4318/v1/traces` — it is
+  used as-is, and gRPC (`4317`) is not supported. Takes precedence over the
+  Seq-derived endpoint.
 |===
