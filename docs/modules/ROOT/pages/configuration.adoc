@@ -77,15 +77,15 @@ only if you want logs/traces in your own observability stack.
 |===
 | Variable | What it does
 
-| `SEQ_URL`
-| Address of a https://datalust.co/seq[Seq] server to ship structured logs to
-  (e.g. `http://seq`). When set, traces are also sent to the same Seq via OTLP
-  automatically.
-
 | `OTEL_EXPORTER_OTLP_ENDPOINT`
-| Send traces (OpenTelemetry) to any OTLP collector instead — Jaeger, Grafana
-  Tempo/Alloy, an OTel Collector, etc. Give the *full* HTTP (protobuf) traces
-  URL including the signal path, e.g. `http://collector:4318/v1/traces` — it is
-  used as-is, and gRPC (`4317`) is not supported. Takes precedence over the
-  Seq-derived endpoint.
+| Ship logs *and* traces (OpenTelemetry) to any OTLP collector — an OTel
+  Collector, Jaeger, Grafana Tempo/Alloy, etc. Give the collector's base HTTP
+  (protobuf) URL, e.g. `http://collector:4318`; the app appends `/v1/logs` and
+  `/v1/traces` itself. gRPC (`4317`) is not supported.
+
+| `SEQ_URL`
+| Prefer https://datalust.co/seq[Seq]? Set this instead (e.g. `http://seq`):
+  logs go to Seq natively and traces to the same Seq via its OTLP ingest. If
+  both variables are set, `OTEL_EXPORTER_OTLP_ENDPOINT` wins for traces and
+  each destination gets the logs.
 |===

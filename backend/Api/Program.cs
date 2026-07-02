@@ -14,11 +14,15 @@ using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using Serilog.Sinks.OpenTelemetry;
 
-// Rolling, structured (compact JSON) log file — one file per day, Information and up.
-// Also ships to Seq when SEQ_URL is set (deploy stacks); every event is tagged
-// with the app version so logs are filterable per release.
+// Observability is OTel-first: OTEL_EXPORTER_OTLP_ENDPOINT (base URL of any
+// OTLP http/protobuf collector, e.g. http://collector:4318) ships logs AND
+// traces there. SEQ_URL is the Seq convenience path: logs via the native sink,
+// traces via Seq's OTLP ingest. Console + rolling file logging always works.
+// Every event is tagged with the app version so logs are filterable per release.
 var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL");
+var otlpBase = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")?.TrimEnd('/');
 var appVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "dev";
 
 var logConfig = new LoggerConfiguration()
@@ -37,20 +41,35 @@ var logConfig = new LoggerConfiguration()
 if (!string.IsNullOrWhiteSpace(seqUrl))
     logConfig = logConfig.WriteTo.Seq(seqUrl);
 
+if (!string.IsNullOrWhiteSpace(otlpBase))
+    logConfig = logConfig.WriteTo.OpenTelemetry(o =>
+    {
+        o.Endpoint = $"{otlpBase}/v1/logs";
+        o.Protocol = OtlpProtocol.HttpProtobuf;
+        o.ResourceAttributes = new Dictionary<string, object>
+        {
+            ["service.name"] = "ThoseDays",
+            ["service.version"] = appVersion,
+        };
+    });
+
 Log.Logger = logConfig.CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
 
-// Traces → Seq via OTLP. Endpoint is either explicit (OTEL_EXPORTER_OTLP_ENDPOINT)
-// or derived from SEQ_URL (Seq listens for OTLP on port 5341).
-var otlpEndpoint = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT");
-if (string.IsNullOrWhiteSpace(otlpEndpoint) && !string.IsNullOrWhiteSpace(seqUrl))
+// Traces: the explicit OTLP base wins; else derived from SEQ_URL (Seq listens
+// for OTLP on port 5341). Full signal path either way — the exporter uses a
+// programmatic Endpoint as-is and does not append /v1/traces.
+string? otlpEndpoint = null;
+if (!string.IsNullOrWhiteSpace(otlpBase))
+{
+    otlpEndpoint = $"{otlpBase}/v1/traces";
+}
+else if (!string.IsNullOrWhiteSpace(seqUrl))
 {
     var seqUri = new Uri(seqUrl);
-    // Full signal path: the exporter uses a programmatic Endpoint as-is and
-    // does not append /v1/traces (it only does that for the env-var form).
     otlpEndpoint = $"{seqUri.Scheme}://{seqUri.Host}:5341/ingest/otlp/v1/traces";
 }
 
