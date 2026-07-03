@@ -48,4 +48,4 @@ Docker on a machine somewhere, you are about ten minutes away from a running
 app.
 
 The source code, issue tracker, and release notes live on
-https://github.com/Trifunovich/ThoseDaysApp[GitHub].
+https://github.com/OfBirds/ThoseDaysApp[GitHub].

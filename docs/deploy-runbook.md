@@ -34,7 +34,7 @@ paths. Minimum contents:
 ```
 # /opt/thosedays/.env.staging
 COMPOSE_PROJECT_NAME=thosedays-staging
-APP_IMAGE=ghcr.io/trifunovich/thosedaysapp:staging
+APP_IMAGE=ghcr.io/ofbirds/thosedaysapp:staging
 APP_PORT=9123
 DB_HOST_PORT=5433
 DB_NAME=thosedays
@@ -45,7 +45,7 @@ DB_PASSWORD=<real-staging-password>
 ```
 # /opt/thosedays/.env.prod
 COMPOSE_PROJECT_NAME=thosedays-prod
-APP_IMAGE=ghcr.io/trifunovich/thosedaysapp:prod
+APP_IMAGE=ghcr.io/ofbirds/thosedaysapp:prod
 APP_PORT=9124
 DB_HOST_PORT=5434
 DB_NAME=thosedays
@@ -70,7 +70,7 @@ mkdir -p ~/actions-runner && cd ~/actions-runner
 
 # Configure — note the custom label `source`, which the workflow targets:
 ./config.sh \
-  --url https://github.com/Trifunovich/ThoseDaysApp \
+  --url https://github.com/OfBirds/ThoseDaysApp \
   --token <REGISTRATION_TOKEN_FROM_GITHUB> \
   --name source \
   --labels source \
