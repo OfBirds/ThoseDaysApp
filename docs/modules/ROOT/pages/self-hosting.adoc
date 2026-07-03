@@ -87,7 +87,7 @@ xref:configuration.adoc[configuration reference] for the exact variables.
 == Updating
 
 New releases are announced on the
-https://github.com/Trifunovich/ThoseDaysApp/releases[GitHub releases page]
+https://github.com/OfBirds/ThoseDaysApp/releases[GitHub releases page]
 (and by email, if you opted in). To update:
 
 [source,shell]
