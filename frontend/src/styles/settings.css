@@ -67,6 +67,12 @@
 }
 .data-block:first-of-type { margin-top: 0; }
 
+/* File picker has an intrinsic width that won't shrink to its container;
+   cap it so it can't push the page wider than the viewport on mobile. */
+.data-block input[type='file'] {
+  max-width: 100%;
+}
+
 .data-subtitle {
   font-size: 1rem;
   margin: 0 0 0.4rem;
