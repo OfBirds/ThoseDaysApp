@@ -92,6 +92,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Release builds also get the public-facing tags: :latest and :<MAJOR.MINOR>
+      # (what the self-hosting docs point strangers at). Staging stays internal.
+      - name: Compute image tags
+        id: tags
+        run: |
+          {
+            echo 'list<<EOF'
+            echo "$IMAGE:${{ steps.env.outputs.tag }}"
+            echo "$IMAGE:${{ steps.version.outputs.version }}"
+            echo "$IMAGE:${{ github.sha }}"
+            if [ "${{ github.ref_name }}" = "release" ]; then
+              echo "$IMAGE:latest"
+              echo "$IMAGE:$(cat VERSION)"
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -100,10 +117,7 @@ jobs:
             APP_VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_TIME=${{ steps.version.outputs.built }}
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.env.outputs.tag }}
-            ${{ env.IMAGE }}:${{ steps.version.outputs.version }}
-            ${{ env.IMAGE }}:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.list }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

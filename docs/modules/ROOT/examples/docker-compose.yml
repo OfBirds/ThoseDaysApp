@@ -4,7 +4,7 @@ name: rosella
 
 services:
   app:
-    image: ghcr.io/trifunovich/thosedaysapp:prod
+    image: ghcr.io/trifunovich/thosedaysapp:latest
     restart: unless-stopped
     depends_on:
       postgres:
