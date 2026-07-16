@@ -27,7 +27,6 @@ with a confirm or stay a visible non-blocking warning.
 
 ### Notes
 
-- **No `main` / `release` reconciliation needed.** Checked 2026-06-20: the two
-  branches point to the **identical tree** (`git diff origin/main origin/release`
-  is empty). The extra commits on `release` are merge-history artifacts only — no
-  stranded features. Don't re-flag this.
+- **No `main` / `release` reconciliation needed.** The `release` branch was
+  deleted when CI moved to event-split deploys (PR → staging, `main` push → prod);
+  it had pointed at a tree identical to `main` (checked 2026-06-20). Don't re-flag this.

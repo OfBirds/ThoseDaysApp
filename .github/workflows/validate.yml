@@ -1,22 +1,17 @@
-name: deploy
+name: validate
 
-# main    -> staging stack (port 9123)
-# release -> prod stack    (port 9124)
+# Pre-merge gate: every same-repo PR targeting main builds and deploys the
+# staging stack (port 9123). Branch protection requires deploy-staging to
+# pass before the PR can merge; merging then triggers release.yml.
 on:
-  push:
-    branches: [main, release]
-  # Run the test job on PRs targeting main/release so they can be gated on green
-  # tests. build/deploy are skipped on PRs (see their `if:` guards) — a PR never
-  # builds an image or deploys.
   pull_request:
-    branches: [main, release]
-  # Manual redeploy/rollback from the Actions tab. Pick the branch to run from
-  # (main -> staging, release -> prod), same routing as a push.
-  workflow_dispatch:
+    branches: [main]
 
-# Don't let two deploys of the same branch overlap; don't cancel one in flight.
+# All PRs share the one staging stack, so validations are serialized: one run
+# at a time, never cancelled mid-flight. If GitHub cancels a superseded queued
+# run, re-run it from the Actions tab.
 concurrency:
-  group: deploy-${{ github.ref_name }}
+  group: validate-staging
   cancel-in-progress: false
 
 env:
@@ -24,6 +19,9 @@ env:
 
 jobs:
   test:
+    # Fork guard: PRs from forks never run anything here (no secrets, no
+    # self-hosted runner exposure). Downstream jobs skip via needs.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -39,23 +37,12 @@ jobs:
 
   build:
     needs: test
-    # Never build from a PR — only on a push to main/release or a manual run.
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v6
-
-      - name: Resolve environment
-        id: env
-        run: |
-          if [ "${{ github.ref_name }}" = "release" ]; then
-            echo "tag=prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=staging" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Compute version
         id: version
@@ -92,23 +79,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Release builds also get the public-facing tags: :latest and :<MAJOR.MINOR>
-      # (what the self-hosting docs point strangers at). Staging stays internal.
-      - name: Compute image tags
-        id: tags
-        run: |
-          {
-            echo 'list<<EOF'
-            echo "$IMAGE:${{ steps.env.outputs.tag }}"
-            echo "$IMAGE:${{ steps.version.outputs.version }}"
-            echo "$IMAGE:${{ github.sha }}"
-            if [ "${{ github.ref_name }}" = "release" ]; then
-              echo "$IMAGE:latest"
-              echo "$IMAGE:$(cat VERSION)"
-            fi
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
+      # Staging tags only. Versioned :<x.y.z> tags are reserved for release.yml
+      # so the two workflows' run_number sequences can't overwrite each other.
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -117,29 +89,21 @@ jobs:
             APP_VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
             BUILD_TIME=${{ steps.version.outputs.built }}
-          tags: ${{ steps.tags.outputs.list }}
+          tags: |
+            ${{ env.IMAGE }}:staging
+            ${{ env.IMAGE }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy:
+  deploy-staging:
+    if: github.event.pull_request.head.repo.full_name == github.repository
     needs: build
-    # Belt-and-suspenders: build is already PR-gated, so deploy can't run on a PR.
-    if: github.event_name != 'pull_request'
     runs-on: [self-hosted, source]
     permissions:
       contents: read
       packages: read
     steps:
       - uses: actions/checkout@v6
-
-      - name: Resolve environment
-        id: env
-        run: |
-          if [ "${{ github.ref_name }}" = "release" ]; then
-            echo "file=/opt/thosedays/.env.prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "file=/opt/thosedays/.env.staging" >> "$GITHUB_OUTPUT"
-          fi
 
       - uses: actions/download-artifact@v8
         with:
@@ -150,11 +114,11 @@ jobs:
 
       - name: Pull image
         working-directory: deploy
-        run: docker compose --env-file ${{ steps.env.outputs.file }} pull
+        run: docker compose --env-file /opt/thosedays/.env.staging pull
 
       - name: Start database
         working-directory: deploy
-        run: docker compose --env-file ${{ steps.env.outputs.file }} up -d --wait postgres
+        run: docker compose --env-file /opt/thosedays/.env.staging up -d --wait postgres
 
       # Apply migrations against the running DB BEFORE swapping the app.
       # ON_ERROR_STOP=1 -> a bad migration fails the job here; the old app keeps
@@ -162,13 +126,13 @@ jobs:
       - name: Apply migrations
         working-directory: deploy
         run: |
-          docker compose --env-file ${{ steps.env.outputs.file }} exec -T postgres \
+          docker compose --env-file /opt/thosedays/.env.staging exec -T postgres \
             sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
             < "$GITHUB_WORKSPACE/migrate.sql"
 
       - name: Deploy app
         working-directory: deploy
-        run: docker compose --env-file ${{ steps.env.outputs.file }} up -d --wait
+        run: docker compose --env-file /opt/thosedays/.env.staging up -d --wait
 
       - name: Prune dangling images
         run: docker image prune -f

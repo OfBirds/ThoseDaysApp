@@ -90,24 +90,23 @@ The runner connects outbound to GitHub — no inbound ports opened.
 
 ## 4. First deploy
 
-Push to `main` → the workflow builds the image, pushes to GHCR, the runner pulls,
-migrates, and brings up the staging stack. Then verify on the LAN:
+Open a PR against `main` → `validate.yml` builds the image, pushes to GHCR, the
+runner pulls, migrates, and brings up the staging stack. Then verify on the LAN:
 
 - staging app:  `http://vm.example.lan:9123/`
 - staging DB (DBeaver): `vm.example.lan:5433`
 
-For prod, create the `release` branch and push it:
-
-```bash
-git checkout -b release && git push -u origin release
-```
+Merge the PR → `release.yml` does the same for prod (there is no `release` branch;
+merging to `main` is the release):
 
 - prod app: `http://vm.example.lan:9124/`
 - prod DB (DBeaver): `vm.example.lan:5434`
 
 ## Day-to-day
 
-- Deploys are automatic on push to `main`/`release`.
+- Deploys are automatic: PRs targeting `main` → staging, pushes to `main` → prod.
+  All PRs share the one staging stack, so validate runs are serialized; if GitHub
+  cancels a superseded queued run, re-run it from the Actions tab.
 - Manual stack control on the VM:
   ```bash
   cd <repo>/deploy   # or wherever the runner checked it out
