@@ -1,0 +1,145 @@
+name: release
+
+# Release: every push to main (i.e. every merged PR — merges are gated on
+# validate.yml's staging deploy) deploys the prod stack (port 9124). There
+# is no release branch.
+on:
+  push:
+    branches: [main]
+  # Manual redeploy/rollback from the Actions tab (runs from main).
+  workflow_dispatch:
+
+# Don't let two releases overlap; don't cancel one in flight.
+concurrency:
+  group: release-prod
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/ofbirds/thosedaysapp
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with: { dotnet-version: '10.0.x' }
+      - run: dotnet test backend/ThoseDays.slnx -c Release
+      - uses: actions/setup-node@v6
+        with: { node-version: '24', cache: 'npm', cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+        working-directory: frontend
+      - run: npm test -- --run
+        working-directory: frontend
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Compute version
+        id: version
+        run: |
+          base=$(cat VERSION)                       # MAJOR.MINOR, hand-bumped
+          echo "version=${base}.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+          echo "built=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      # --- Generate the idempotent migration script (the explicit gate) ---
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Generate migration script
+        working-directory: backend/Api
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.0
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          dotnet build -c Release
+          dotnet ef migrations script --idempotent --no-build --configuration Release \
+            -o "$GITHUB_WORKSPACE/migrate.sql"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: migrate-sql
+          path: migrate.sql
+
+      # --- Build & push the single app image ---
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Release builds also get the public-facing tags :latest and :<MAJOR.MINOR>
+      # (what the self-hosting docs point strangers at).
+      - name: Compute image tags
+        id: tags
+        run: |
+          {
+            echo 'list<<EOF'
+            echo "$IMAGE:prod"
+            echo "$IMAGE:${{ steps.version.outputs.version }}"
+            echo "$IMAGE:${{ github.sha }}"
+            echo "$IMAGE:latest"
+            echo "$IMAGE:$(cat VERSION)"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TIME=${{ steps.version.outputs.built }}
+          tags: ${{ steps.tags.outputs.list }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-prod:
+    needs: build
+    runs-on: [self-hosted, source]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: migrate-sql
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Pull image
+        working-directory: deploy
+        run: docker compose --env-file /opt/thosedays/.env.prod pull
+
+      - name: Start database
+        working-directory: deploy
+        run: docker compose --env-file /opt/thosedays/.env.prod up -d --wait postgres
+
+      # Apply migrations against the running DB BEFORE swapping the app.
+      # ON_ERROR_STOP=1 -> a bad migration fails the job here; the old app keeps
+      # running untouched. The script is idempotent, so re-runs are no-ops.
+      - name: Apply migrations
+        working-directory: deploy
+        run: |
+          docker compose --env-file /opt/thosedays/.env.prod exec -T postgres \
+            sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
+            < "$GITHUB_WORKSPACE/migrate.sql"
+
+      - name: Deploy app
+        working-directory: deploy
+        run: docker compose --env-file /opt/thosedays/.env.prod up -d --wait
+
+      - name: Prune dangling images
+        run: docker image prune -f
