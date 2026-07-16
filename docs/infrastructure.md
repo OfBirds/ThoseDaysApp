@@ -8,17 +8,18 @@
 
 Two independent, automatically-deployed environments running on the homelab:
 
-| Environment | Source branch | Trigger            | Purpose            |
-| ----------- | ------------- | ------------------ | ------------------ |
-| **staging** | `main`        | push to `main`     | test / preview     |
-| **prod**    | `release`     | push to `release`  | the real thing     |
+| Environment | Source   | Trigger (workflow)                         | Purpose            |
+| ----------- | -------- | ------------------------------------------ | ------------------ |
+| **staging** | PR head  | PR targeting `main` (`validate.yml`)        | pre-merge gate     |
+| **prod**    | `main`   | push to `main`, i.e. merge (`release.yml`)  | the real thing     |
 
 "Independent" means each environment is a fully separate Docker stack: its own
 database, its own volumes, its own network, its own secrets. Nothing is shared.
 Wiping or breaking staging can never touch prod.
 
-> Note: the repo's default branch is `main` (not `master`). A `release` branch
-> does not exist yet and will be created when we wire up prod.
+> Note: there is no `release` branch — branch protection requires `validate.yml`'s
+> staging deploy to succeed before a PR can merge, and the merge itself is the
+> release.
 
 ## What we are deploying
 
@@ -166,4 +167,4 @@ Because everything is plain HTTP on the LAN:
 3. Stand up the self-hosted runner on the Debian VM.
 4. Write the GitHub Actions workflow (build → push GHCR → deploy via runner).
 5. Bring up staging from `main`, verify end-to-end.
-6. Create the `release` branch and bring up prod the same way.
+6. Merge a PR to `main` and verify prod comes up the same way (no `release` branch).
