@@ -37,6 +37,10 @@ public class ConfigController(
     [HttpGet]
     public async Task<ActionResult> Get(CancellationToken ct)
     {
+        // Never let a browser/proxy/service-worker pin this: a stale copy points the SPA at an old
+        // IdP authority and dead-ends the login on "Failed to fetch". Always serve it fresh.
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+
         var authority = config["OIDC_AUTHORITY"];
         var enabled = !string.IsNullOrWhiteSpace(authority);
         var online = enabled && await IsOnlineAsync(authority!, ct);
