@@ -5,7 +5,7 @@
 // static cache name, which froze PWAs on whatever build they first cached. This version is plain JS,
 // serves navigations/HTML from the network first (cache only as an offline fallback), and bumps the
 // cache name so the stale caches are cleared on activate.
-const CACHE_NAME = 'thosedays-shell-v2';
+const CACHE_NAME = 'thosedays-shell-v3';
 
 self.addEventListener('install', function () {
   self.skipWaiting(); // take over as soon as this (valid) SW is parsed
@@ -27,6 +27,12 @@ self.addEventListener('fetch', function (event) {
 
   var url;
   try { url = new URL(request.url); } catch (e) { return; }
+
+  // Runtime auth/config: ALWAYS network, NEVER cached. A stale /api/config pins the SPA to a
+  // decommissioned IdP authority, so the auto-SSO redirect fetches a dead discovery doc and the
+  // app dead-ends on "Failed to fetch" with no way out. Return without respondWith so the request
+  // goes straight to the network with no SW cache in front of it.
+  if (url.pathname === '/api/config') return;
 
   // App shell (navigations / HTML): NETWORK-FIRST — always pick up the latest deploy; fall back to
   // cache only when offline. (Cache-first here is exactly what froze PWAs on stale builds.)
