@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import { getSaveOnSelection, saveSaveOnSelection } from '../lib/storage';
+import { getAutoUpdate, saveAutoUpdate, getSaveOnSelection, saveSaveOnSelection } from '../lib/storage';
 import DataSection from '../components/DataSection';
 import '../styles/settings.css';
 
@@ -18,6 +18,7 @@ function SettingsPage() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   const [saveOnSelection, setSaveOnSelection] = useState(getSaveOnSelection);
+  const [autoUpdate, setAutoUpdate] = useState(getAutoUpdate);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +162,27 @@ function SettingsPage() {
               Days you click are saved a few seconds later, so they survive refreshes and other
               devices. They don't influence statistics or future predictions until you press
               Recalculate.
+            </span>
+          </span>
+        </label>
+
+        <label
+          className="settings-row"
+          title="The cycle length and period duration fields follow the days you paint on the calendar."
+        >
+          <input
+            type="checkbox"
+            checked={autoUpdate}
+            onChange={(e) => {
+              setAutoUpdate(e.target.checked);
+              saveAutoUpdate(e.target.checked);
+            }}
+          />
+          <span className="settings-row-label">
+            Auto-update from calendar
+            <span className="settings-row-help">
+              Cycle length and period duration follow the days you paint. Turn this off to type
+              your own numbers before pressing Recalculate.
             </span>
           </span>
         </label>

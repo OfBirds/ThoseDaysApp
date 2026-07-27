@@ -567,3 +567,10 @@
   outline-offset: -2px;
   opacity: 0.9;
 }
+
+/* Statement shown (in the old toggle slot) while the draft is uncommitted. */
+.unsaved-note {
+  height: auto;
+  align-self: flex-start;
+  margin: 0.35rem 0 0;
+}

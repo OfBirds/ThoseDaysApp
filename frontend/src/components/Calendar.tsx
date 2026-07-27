@@ -3,7 +3,7 @@ import { apiFetch } from '../lib/api';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
 import {
-  getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, getSaveOnSelection,
+  getDraft, saveDraft, getAutoUpdate, getSaveOnSelection,
   getPendingImport, clearPendingImport, type Draft, type PendingImport,
 } from '../lib/storage';
 import {
@@ -85,7 +85,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
     periodDuration: DEFAULT_CONFIG.defaultPeriodDuration,
     dirty: false
   });
-  const [autoUpdate, setAutoUpdate] = useState(getAutoUpdate);
+  const [autoUpdate] = useState(getAutoUpdate); // set in Settings; fresh on each mount
   const [recalculating, setRecalculating] = useState(false);
   const [recalcError, setRecalcError] = useState('');
   const [msgOpen, setMsgOpen] = useState(false);
@@ -252,10 +252,6 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
       totalCycles: groupPeriods(draft.days).length,
     });
   }, [draft.days, draft.dirty, config, onDraftStats]);
-
-  useEffect(() => {
-    saveAutoUpdate(autoUpdate);
-  }, [autoUpdate]);
 
   const toggleDay = (iso: string) => {
     setRecalcError(''); // editing clears a stale recalc error; live checks take over
@@ -537,16 +533,10 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
               {savingImport ? 'Saving…' : 'Save Imported'}
             </button>
           )}
-          {draft.dirty && <span className="unsaved-badge" title="Unsaved changes">●&nbsp;Unsaved</span>}
         </div>
-        <label className="auto-update-toggle">
-          <input
-            type="checkbox"
-            checked={autoUpdate}
-            onChange={e => setAutoUpdate(e.target.checked)}
-          />
-          Auto-update from calendar
-        </label>
+        {draft.dirty && (
+          <p className="unsaved-badge unsaved-note">●&nbsp;Predictions and stats not recalculated</p>
+        )}
       </div>
 
       <div className="calendar-header">

@@ -116,7 +116,7 @@ function StatsPage() {
       <h1 className="page-title">Statistics</h1>
       {stale && (
         <p className="stats-stale-badge" role="status">
-          Recalculate for accurate data — the calendar has unsaved days.
+          Recalculate for accurate data — statistics data mismatch.
         </p>
       )}
 
