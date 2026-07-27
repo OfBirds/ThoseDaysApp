@@ -13,8 +13,8 @@
 > shown when CrimsonRaven is offline/unconfigured (break-glass), with a maintenance notice.
 > Decommissioning the local path is a deliberate later step.
 >
-> (The app is branded **Rosella Rhythm**; the repo/code namespace stays `thosedays` / `Api`.
-> Prod is served at **`rosella.bearsoft.duckdns.org`**.)
+> (The app is branded **Pink Cockatoo**; the repo/code namespace stays `thosedays` / `Api`.
+> Prod is served at **`cockatoo.bearsoft.duckdns.org`**.)
 
 ## Why
 
@@ -85,20 +85,20 @@ their email is treated as new (empty) until they do.
 | `JWT_SIGNING_KEY` | HMAC key for the local login (≥32 chars; blank → ephemeral, logs out on restart). |
 | `JWT_EXPIRY_DAYS` | Local-token lifetime (default 30). |
 | `OIDC_AUTHORITY` | IdP issuer; must equal the token `iss`. Blank → SSO off. |
-| `OIDC_CLIENT_ID` | Rosella Rhythm public/PKCE client id in CrimsonRaven. |
+| `OIDC_CLIENT_ID` | Pink Cockatoo public/PKCE client id in CrimsonRaven. |
 | `OIDC_AUDIENCE` | Expected `aud` in the access token (== client id for a PKCE app). |
 | `OIDC_LINK_ALLOW_UNVERIFIED_EMAIL` | TEMP: link by unverified email (default false). |
 
 ## Org isolation + the Login-V2 branding limitation (PARKED)
 
-Rosella lives in its **own CrimsonRaven org** (not the default org Fuel uses), and users stay
+Pink Cockatoo (client id `rosella`) lives in its **own CrimsonRaven org** (not the default org Fuel uses), and users stay
 **shared across the whole instance**: a person registers once and SSO works into every app
 (Fuel included), because we **don't** send an org scope and the project's authorization check is
 **off** (`hasProjectCheck=false`). That part works and is verified (a default-org user logs
-straight into the Rosella app).
+straight into the Pink Cockatoo app).
 
 **What does NOT work — per-app login-page branding (parked, pending investigation):** the plan
-was to brand Rosella's login via the project's
+was to brand Pink Cockatoo's login via the project's
 `PRIVATE_LABELING_SETTING_ENFORCE_PROJECT_RESOURCE_OWNER_POLICY`. **Stock Login V2 ignores that
 setting** — it renders only the **instance** label policy. The only first-screen override is the
 org scope (`urn:zitadel:iam:org:id|domain`), which **also restricts login to that org's members**
@@ -115,16 +115,16 @@ IdP). Per-app branding would need a V2 fork.
 
 Both are **public PKCE** clients (`app_type USER_AGENT`, `auth_method NONE`, grants code +
 refresh, **JWT access tokens** — required so the backend can validate them against the JWKS),
-in a dedicated **`Rosella Rhythm` org** per instance. `OIDC_CLIENT_ID == OIDC_AUDIENCE`.
+in a dedicated **`Pink Cockatoo` org** per instance. `OIDC_CLIENT_ID == OIDC_AUDIENCE`.
 
 | | Staging / local (`raven-staging…`) | Prod (`raven…`) |
 |---|---|---|
-| Org `Rosella Rhythm` | `378269015241392131` | `378269526107619332` |
+| Org `Pink Cockatoo` | `378269015241392131` | `378269526107619332` |
 | Project (no project check) | `378269015878926339` | `378269526778707972` |
 | App | `378269016482906115` | `378269527349133316` |
 | **Client id** | **`378269016482971651`** | **`378269527349198852`** |
-| Redirect URIs | `http://localhost:3000/auth/callback`, `http://127.0.0.1:3000/auth/callback`, `https://thosedays-staging.bearsoft.duckdns.org/auth/callback` | `https://rosella.bearsoft.duckdns.org/auth/callback` |
-| Post-logout | `http://localhost:3000`, `http://127.0.0.1:3000`, `https://thosedays-staging.bearsoft.duckdns.org` | `https://rosella.bearsoft.duckdns.org` |
+| Redirect URIs | `http://localhost:3000/auth/callback`, `http://127.0.0.1:3000/auth/callback`, `https://thosedays-staging.bearsoft.duckdns.org/auth/callback` | `https://cockatoo.bearsoft.duckdns.org/auth/callback` |
+| Post-logout | `http://localhost:3000`, `http://127.0.0.1:3000`, `https://thosedays-staging.bearsoft.duckdns.org` | `https://cockatoo.bearsoft.duckdns.org` |
 | dev_mode | true | false |
 
 The committed `deploy/.env.staging.example` / `.env.prod.example` carry these ids (the staging
@@ -140,7 +140,7 @@ and prod must be served over HTTPS, fronted by the `.98` nginx (TLS via the
 | Host (HTTPS) | nginx `.98` → backend |
 |---|---|
 | `thosedays-staging.bearsoft.duckdns.org` | `192.168.4.55:9123` (staging `APP_PORT`) |
-| `rosella.bearsoft.duckdns.org` | `192.168.4.55:9124` (prod `APP_PORT`) |
+| `cockatoo.bearsoft.duckdns.org` | `192.168.4.55:9124` (prod `APP_PORT`) |
 
 The redirect URIs are pre-registered on the clients, so the only remaining edge work per host is
 the nginx server block (copy fuel's `swallow` block; change `server_name` + `proxy_pass`) and
