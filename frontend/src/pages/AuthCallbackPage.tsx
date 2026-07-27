@@ -27,7 +27,7 @@ function AuthCallbackPage() {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1>Rosella Rhythm</h1>
+        <h1>Pink Cockatoo</h1>
         {error ? (
           <>
             <p className="error-message">{error}</p>

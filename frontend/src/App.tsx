@@ -176,12 +176,12 @@ function AppContent() {
       <footer className="app-footer">
         <img
           className="app-logo"
-          src={theme === 'dark' ? '/rosella-dark.png' : '/rosella-light.png'}
+          src={theme === 'dark' ? '/cockatoo-dark.svg' : '/cockatoo-light.svg'}
           alt=""
           width={56}
           height={56}
         />
-        <span className="app-brand">Rosella Rhythm</span>
+        <span className="app-brand">Pink Cockatoo</span>
       </footer>
     </div>
   );

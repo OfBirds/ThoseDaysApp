@@ -1,6 +1,6 @@
-# Rosella Rhythm — self-host stack: the app + its own PostgreSQL.
+# Pink Cockatoo — self-host stack: the app + its own PostgreSQL.
 # Put a DB_PASSWORD in a .env file next to this, then: docker compose up -d
-name: rosella
+name: pink-cockatoo
 
 services:
   app:

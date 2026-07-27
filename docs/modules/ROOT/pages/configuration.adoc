@@ -48,7 +48,7 @@ features stay silently off when these are unset.
   you update).
 
 | `PUBLIC_BASE_URL`
-| The address your users reach the app at (e.g. `https://rosella.example.com`).
+| The address your users reach the app at (e.g. `https://pink-cockatoo.example.com`).
   Used for links inside emails.
 
 | `SMTP_HOST` / `SMTP_PORT`
