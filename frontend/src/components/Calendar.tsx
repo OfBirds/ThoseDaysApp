@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '../lib/api';
 import '../styles/calendar.css';
 import BloodDropIcon from './BloodDropIcon';
 import {
-  getDraft, saveDraft, getAutoUpdate, saveAutoUpdate,
+  getDraft, saveDraft, getAutoUpdate, saveAutoUpdate, getSaveOnSelection,
   getPendingImport, clearPendingImport, type Draft, type PendingImport,
 } from '../lib/storage';
 import {
@@ -37,11 +37,21 @@ interface NextPeriod {
 const SHORT_DATE = (iso: string) =>
   new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
 
+// Save-on-selection gathers a few clicks (5–10 s per design) before one draft save.
+const DRAFT_SAVE_DEBOUNCE_MS = 7000;
+
+interface DraftStats {
+  averageCycleLength: number;
+  averageInterval: number;
+  totalCycles: number;
+}
+
 interface CalendarProps {
   cycles: Cycle[];
   onCommitted: () => void;
   userId: string;
   onNextPeriod?: (info: NextPeriod | null) => void;
+  onDraftStats?: (stats: DraftStats | null) => void;
 }
 
 const DEFAULT_CONFIG: RecalcConfig = {
@@ -65,7 +75,7 @@ function cyclesToDays(cycles: Cycle[]): string[] {
   return [...set].sort();
 }
 
-function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) {
+function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [config, setConfig] = useState<RecalcConfig>(DEFAULT_CONFIG);
@@ -82,6 +92,10 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(() => getPendingImport(userId));
   const [savingImport, setSavingImport] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Server copy of an unsaved draft (save-on-selection); null until fetched/absent.
+  const [serverDraftDays, setServerDraftDays] = useState<string[] | null>(null);
+  const saveTimer = useRef<number | null>(null);
+  const draftDaysRef = useRef<string[]>([]);
 
   // Days covered by a staged-but-unsaved import, for the calendar overlay.
   const pendingDays = new Set(
@@ -142,18 +156,39 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
     void fetchPredictions();
   }, [userId, fetchPredictions]);
 
-  // Seed the draft from the DB actuals (and the fields from their average),
-  // unless an unsaved (dirty) draft exists.
+  // One-time: pull the server draft copy (save-on-selection) so an unsaved
+  // draft follows the account across refreshes and devices.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await apiFetch(`/api/user/${userId}/draft`);
+        if (alive && res.status === 200) {
+          const data = await res.json();
+          if (Array.isArray(data.days)) setServerDraftDays(data.days);
+        }
+      } catch { /* offline — the local draft still works */ }
+    })();
+    return () => { alive = false; };
+  }, [userId]);
+
+  // Seed the draft: a local unsaved (dirty) draft wins, then the server draft
+  // copy, then the DB actuals (fields from their average).
   useEffect(() => {
     const stored = getDraft(userId);
     if (stored && stored.dirty) {
       setDraft(stored);
       return;
     }
+    if (serverDraftDays && serverDraftDays.length > 0) {
+      const avg = computeAverages(serverDraftDays, config);
+      setDraft({ days: serverDraftDays, cycleLength: avg.cycleLength, periodDuration: avg.periodDuration, dirty: true });
+      return;
+    }
     const days = cyclesToDays(cycles);
     const avg = computeAverages(days, config);
     setDraft({ days, cycleLength: avg.cycleLength, periodDuration: avg.periodDuration, dirty: false });
-  }, [cycles, userId, config]);
+  }, [cycles, userId, config, serverDraftDays]);
 
   // Live auto-update: when on, the fields track the painted calendar.
   useEffect(() => {
@@ -170,6 +205,53 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
   useEffect(() => {
     saveDraft(userId, draft);
   }, [draft, userId]);
+
+  draftDaysRef.current = draft.days;
+
+  const putServerDraft = useCallback(() => {
+    void apiFetch(`/api/user/${userId}/draft`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ days: draftDaysRef.current }),
+    }).catch(() => { /* still in localStorage; a later change retries */ });
+  }, [userId]);
+
+  // Save-on-selection: from the FIRST unsaved change, wait a few seconds so
+  // several clicks batch into one save, then push the day-set to the server.
+  useEffect(() => {
+    if (!draft.dirty || !getSaveOnSelection()) return;
+    if (saveTimer.current !== null) return;
+    saveTimer.current = window.setTimeout(() => {
+      saveTimer.current = null;
+      putServerDraft();
+    }, DRAFT_SAVE_DEBOUNCE_MS);
+  }, [draft.days, draft.dirty, putServerDraft]);
+
+  // Leaving the calendar with a save still pending → flush it now.
+  useEffect(() => () => {
+    if (saveTimer.current !== null) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      if (getSaveOnSelection()) putServerDraft();
+    }
+  }, [putServerDraft]);
+
+  // Main-page stats mirror the unsaved draft — confirming calendar input.
+  // (Slot naming follows the server stats endpoint: averageCycleLength carries
+  // the period duration, averageInterval the cycle length.)
+  useEffect(() => {
+    if (!onDraftStats) return;
+    if (!draft.dirty) {
+      onDraftStats(null);
+      return;
+    }
+    const avg = computeAverages(draft.days, config);
+    onDraftStats({
+      averageCycleLength: avg.periodDuration,
+      averageInterval: avg.cycleLength,
+      totalCycles: groupPeriods(draft.days).length,
+    });
+  }, [draft.days, draft.dirty, config, onDraftStats]);
 
   useEffect(() => {
     saveAutoUpdate(autoUpdate);
@@ -232,6 +314,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
       setPendingImport(null);
       // The import is now committed; drop any "unsaved" state so the draft
       // reseeds from the freshly-saved cycles (see the seeding effect).
+      setServerDraftDays(null);
       setDraft(prev => ({ ...prev, dirty: false }));
       await fetchPredictions();
       onCommitted();
@@ -287,6 +370,14 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod }: CalendarProps) 
         })
       });
       if (!res.ok) throw new Error('Recalculation failed');
+
+      // The commit supersedes the draft: drop any pending save (it would
+      // recreate the server draft with now-committed days) and the server copy.
+      if (saveTimer.current !== null) {
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      setServerDraftDays(null);
 
       const data = await res.json();
       setPredictions(data.forecast);

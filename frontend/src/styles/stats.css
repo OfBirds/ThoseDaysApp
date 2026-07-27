@@ -144,3 +144,15 @@
 @media (max-width: 520px) {
   .current-cycle-body { justify-content: center; text-align: center; }
 }
+
+/* Nudge shown when a dirty calendar draft differs from the committed cycles. */
+.stats-stale-badge {
+  display: inline-block;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent);
+  background: transparent;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}

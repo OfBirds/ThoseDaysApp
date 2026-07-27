@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { getSaveOnSelection, saveSaveOnSelection } from '../lib/storage';
 import DataSection from '../components/DataSection';
 import '../styles/settings.css';
 
@@ -16,6 +17,7 @@ const LEAD_MAX = 7;
 function SettingsPage() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [saveOnSelection, setSaveOnSelection] = useState(getSaveOnSelection);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +137,34 @@ function SettingsPage() {
           )}
         </section>
       )}
+
+      <section className="settings-section" aria-labelledby="settings-calendar-heading">
+        <h2 id="settings-calendar-heading" className="settings-section-title">
+          Calendar
+        </h2>
+
+        <label
+          className="settings-row"
+          title="Painted days are saved to your account a few seconds after each click."
+        >
+          <input
+            type="checkbox"
+            checked={saveOnSelection}
+            onChange={(e) => {
+              setSaveOnSelection(e.target.checked);
+              saveSaveOnSelection(e.target.checked);
+            }}
+          />
+          <span className="settings-row-label">
+            Save dates on selection
+            <span className="settings-row-help">
+              Days you click are saved a few seconds later, so they survive refreshes and other
+              devices. They don't influence statistics or future predictions until you press
+              Recalculate.
+            </span>
+          </span>
+        </label>
+      </section>
 
       <DataSection userId={user.id} />
     </div>

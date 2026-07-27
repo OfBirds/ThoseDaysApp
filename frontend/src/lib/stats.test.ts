@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  toPeriods, periodsFromDays, summarize, median, stdDev, histogram, currentCycle,
+  toPeriods, summarize, median, stdDev, histogram, currentCycle,
   periodDaySet, accuracy, recentRows, type CycleRecord,
 } from './stats';
 
@@ -23,17 +23,6 @@ describe('toPeriods', () => {
   it('strips any time component from the start date', () => {
     const p = toPeriods([cycle('2026-01-01T22:00:00Z')]);
     expect(p[0].start).toBe('2026-01-01');
-  });
-});
-
-describe('periodsFromDays', () => {
-  it('groups painted days into periods with intervals and no history flags', () => {
-    const p = periodsFromDays(['2026-01-03', '2026-01-01', '2026-01-02', '2026-01-29', '2026-01-30']);
-    expect(p.map((x) => [x.start, x.length, x.interval])).toEqual([
-      ['2026-01-01', 3, null],
-      ['2026-01-29', 2, 28],
-    ]);
-    expect(p.every((x) => !x.corrected && !x.auto && x.predictedStart === null)).toBe(true);
   });
 });
 

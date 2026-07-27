@@ -2,7 +2,7 @@
 // Pure, string-date based (no timezone drift), no React deps. Mirrors the
 // domain math in predictions.ts but aimed at visualization rather than forecasting.
 
-import { daysBetween, addDaysIso, spanDays, weightedAvg, groupPeriods } from './predictions';
+import { daysBetween, addDaysIso, spanDays, weightedAvg } from './predictions';
 
 export interface CycleRecord {
   id: string;
@@ -37,23 +37,6 @@ export function toPeriods(cycles: CycleRecord[]): Period[] {
     corrected: c.corrected,
     auto: c.auto,
     predictedStart: c.predictedStart ? day(c.predictedStart) : null,
-  }));
-}
-
-/**
- * Build metadata-free periods from a painted day-set (an unsaved calendar
- * draft). Source flags are false/null — draft days carry no history.
- */
-export function periodsFromDays(days: string[]): Period[] {
-  const grouped = groupPeriods(days);
-  return grouped.map((p, i) => ({
-    id: p.start,
-    start: p.start,
-    length: p.length,
-    interval: i === 0 ? null : daysBetween(grouped[i - 1].start, p.start),
-    corrected: false,
-    auto: false,
-    predictedStart: null,
   }));
 }
 

@@ -75,6 +75,10 @@ export const saveTheme = (theme: Theme) => write('theme', theme);
 export const getAutoUpdate = () => read<boolean>('autoUpdate') ?? true;
 export const saveAutoUpdate = (on: boolean) => write('autoUpdate', on);
 
+// --- Save-on-selection (painted days sync to the server draft while unsaved) ---
+export const getSaveOnSelection = () => read<boolean>('saveOnSelection') ?? true;
+export const saveSaveOnSelection = (on: boolean) => write('saveOnSelection', on);
+
 // --- Font scale (percent, e.g. 100) ---
 export const getFontScale = () => read<number>('fontScale') ?? 100;
 export const saveFontScale = (pct: number) => write('fontScale', pct);

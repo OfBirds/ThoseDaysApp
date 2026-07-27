@@ -141,6 +141,10 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         }).ToList();
 
         context.Cycles.AddRange(newCycles);
+
+        // The committed day-set supersedes any saved calendar draft — drop the server copy.
+        var drafts = await context.CalendarDrafts.Where(d => d.UserId == userId).ToListAsync();
+        context.CalendarDrafts.RemoveRange(drafts);
         // NOTE: deliberately no SaveChanges here. The cycle removals/adds stay tracked
         // and are flushed together with the prediction changes by the single
         // SaveChanges inside RegenerateForecastAsync — one atomic, batched commit.
