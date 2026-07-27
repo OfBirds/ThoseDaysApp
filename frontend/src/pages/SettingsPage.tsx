@@ -159,16 +159,15 @@ function SettingsPage() {
           <span className="settings-row-label">
             Save dates on selection
             <span className="settings-row-help">
-              Days you click are saved a few seconds later, so they survive refreshes and other
-              devices. They don't influence statistics or future predictions until you press
-              Recalculate.
+              Days you click are saved automatically after a few seconds, but they don't
+              influence predictions and accurate statistics unless you click on Recalculate.
             </span>
           </span>
         </label>
 
         <label
           className="settings-row"
-          title="The cycle length and period duration fields follow the days you paint on the calendar."
+          title="The cycle length and period duration fields follow the days you select on the calendar."
         >
           <input
             type="checkbox"
@@ -181,7 +180,7 @@ function SettingsPage() {
           <span className="settings-row-label">
             Auto-update from calendar
             <span className="settings-row-help">
-              Cycle length and period duration follow the days you paint. Turn this off to type
+              Cycle length and period duration follow the days you select. Turn this off to type
               your own numbers before pressing Recalculate.
             </span>
           </span>
