@@ -82,6 +82,9 @@ function AppContent() {
   const { theme } = useTheme();
   const [cycles, setCycles] = useState<Cycle[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
+  // Unsaved-draft stats from the calendar; shown instead of the server stats so
+  // the main page confirms what's painted right now.
+  const [draftStats, setDraftStats] = useState<Stats | null>(null);
   const [nextPeriod, setNextPeriod] = useState<{ startIso: string; daysUntil: number; rangeLabel: string | null } | null>(null);
   const [, setLoading] = useState(true);
 
@@ -156,12 +159,13 @@ function AppContent() {
                   onCommitted={fetchData}
                   userId={user.id}
                   onNextPeriod={setNextPeriod}
+                  onDraftStats={setDraftStats}
                 />
-                {stats && (
+                {(draftStats ?? stats) && (
                   <StatusBar
-                    averageCycleLength={stats.averageCycleLength}
-                    averageInterval={stats.averageInterval}
-                    totalCycles={stats.totalCycles}
+                    averageCycleLength={(draftStats ?? stats)!.averageCycleLength}
+                    averageInterval={(draftStats ?? stats)!.averageInterval}
+                    totalCycles={(draftStats ?? stats)!.totalCycles}
                     nextPeriodDays={nextPeriod?.daysUntil ?? null}
                     nextPeriodRange={nextPeriod?.rangeLabel ?? null}
                   />
@@ -176,12 +180,12 @@ function AppContent() {
       <footer className="app-footer">
         <img
           className="app-logo"
-          src={theme === 'dark' ? '/rosella-dark.png' : '/rosella-light.png'}
+          src={theme === 'dark' ? '/cockatoo-dark.svg' : '/cockatoo-light.svg'}
           alt=""
           width={56}
           height={56}
         />
-        <span className="app-brand">Rosella Rhythm</span>
+        <span className="app-brand">Pink Cockatoo</span>
       </footer>
     </div>
   );

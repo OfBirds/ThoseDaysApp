@@ -1,5 +1,5 @@
 /* auth-core <AuthScreen> theming — reuse the app's palette so the transient "Signing you in…" spinner
- * and the legacy break-glass form follow light/dark ([data-theme]) and the Rosella coral. The real,
+ * and the legacy break-glass form follow light/dark ([data-theme]) and the brand coral. The real,
  * branded login UI is hosted by CrimsonRaven/Keycloak now. */
 .bsa-screen {
   --auth-accent: var(--primary);
