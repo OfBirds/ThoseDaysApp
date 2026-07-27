@@ -1,6 +1,6 @@
-= What is Rosella Rhythm?
+= What is Pink Cockatoo?
 
-Rosella Rhythm is a free, open-source *menstrual-cycle tracker* that you run on
+Pink Cockatoo is a free, open-source *menstrual-cycle tracker* that you run on
 your own server. Log your period start dates, and it learns your rhythm:
 a calendar of past and predicted periods, a countdown to the next one, and
 statistics about your cycle over time.
@@ -11,7 +11,7 @@ flock's rules:
 * *Always self-hostable.* You install it on a machine you control — a home
   server, a NAS, a small VPS. There is no hosted version to sign up for.
 * *Your data stays yours.* Cycle data is about as personal as data gets. With
-  Rosella Rhythm, the database lives on your server and never leaves it.
+  Pink Cockatoo, the database lives on your server and never leaves it.
 * *Money is optional.* The app is free and open source (AGPL). Donate if it
   helped you; otherwise you only pay for whatever box you run it on.
 

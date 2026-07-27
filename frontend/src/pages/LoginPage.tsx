@@ -7,7 +7,7 @@ interface LoginPageProps {
   onLoginSuccess: () => void;
 }
 
-// In CrimsonRaven mode this just bounces to Keycloak (which hosts the themed Rosella login,
+// In CrimsonRaven mode this just bounces to Keycloak (which hosts the themed app login,
 // registration, verify-email and forgot-password pages) and shows a brief "Signing you in…". The app
 // only supplies its palette (login.css) and the legacy email/password form as the break-glass `legacy`
 // slot, shown when AUTH_MODE=legacy.

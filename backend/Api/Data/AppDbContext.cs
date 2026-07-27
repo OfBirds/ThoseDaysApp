@@ -9,6 +9,7 @@ public class AppDbContext : DbContext
     public DbSet<Cycle> Cycles { get; set; }
     public DbSet<Prediction> Predictions { get; set; }
     public DbSet<SystemSetting> SystemSettings { get; set; }
+    public DbSet<CalendarDraft> CalendarDrafts { get; set; }
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
@@ -57,6 +58,16 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SystemSetting>(entity =>
         {
             entity.HasKey(e => e.Key);
+        });
+
+        modelBuilder.Entity<CalendarDraft>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.DaysJson).IsRequired();
+            entity.HasOne(e => e.User)
+                .WithOne()
+                .HasForeignKey<CalendarDraft>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

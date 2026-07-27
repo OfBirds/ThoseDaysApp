@@ -1,6 +1,6 @@
 = Self-hosting quick start
 
-This guide gets Rosella Rhythm running on your own machine with Docker. No
+This guide gets Pink Cockatoo running on your own machine with Docker. No
 programming knowledge needed — you will copy two small files, run one command,
 and open the app in your browser.
 
@@ -17,7 +17,7 @@ database (PostgreSQL) alongside it.
 
 == Step 1 — create a folder with two files
 
-Make a folder for the app (for example `rosella/`) and put these two files in
+Make a folder for the app (for example `pink-cockatoo/`) and put these two files in
 it.
 
 `docker-compose.yml` — describes the two containers (the app and its
@@ -67,7 +67,7 @@ In a browser on the same network, open:
 http://<address-of-your-machine>:8080
 ----
 
-You should see the Rosella Rhythm login screen. Register an account, log some
+You should see the Pink Cockatoo login screen. Register an account, log some
 period dates, and the calendar and predictions light up from there.
 
 [NOTE]
@@ -78,7 +78,7 @@ Traefik) works; point it at port `8080`.
 
 == Optional: email reminders
 
-Rosella Rhythm can email you before a predicted period and when a new version
+Pink Cockatoo can email you before a predicted period and when a new version
 ships. Both are opt-in and need an SMTP account (a Gmail address with an
 https://support.google.com/accounts/answer/185833[app password] works). Add
 the SMTP settings to your `.env` and environment — see the
@@ -106,7 +106,7 @@ command (run it from the app folder):
 
 [source,shell]
 ----
-docker compose exec postgres pg_dump -U thosedays thosedays > rosella-backup.sql
+docker compose exec postgres pg_dump -U thosedays thosedays > pink-cockatoo-backup.sql
 ----
 
 Run that on a schedule (cron, Task Scheduler, your NAS's backup tool) and copy
@@ -114,5 +114,5 @@ the file somewhere safe. To restore onto a fresh install:
 
 [source,shell]
 ----
-docker compose exec -T postgres psql -U thosedays thosedays < rosella-backup.sql
+docker compose exec -T postgres psql -U thosedays thosedays < pink-cockatoo-backup.sql
 ----

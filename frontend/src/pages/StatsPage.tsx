@@ -6,6 +6,7 @@ import {
   toPeriods, summarize, histogram, currentCycle, periodDaySet, accuracy, recentRows,
   type CycleRecord,
 } from '../lib/stats';
+import { getDraft } from '../lib/storage';
 import LineChart from '../components/charts/LineChart';
 import BarStrip from '../components/charts/BarStrip';
 import Histogram from '../components/charts/Histogram';
@@ -66,25 +67,33 @@ function StatsPage() {
   }, [user]);
 
   const view = useMemo(() => {
+    // Committed cycles only — this page is the official history. A dirty draft
+    // whose day-set differs just raises the "stale" nudge; the calendar page
+    // shows the live draft numbers.
     const periods = toPeriods(cycles);
     const summary = summarize(periods, config.weights, config.tailWeight, config.defaultCycleLength);
     const today = todayIso();
     const next = findNextPrediction(predictions, today);
+    const heat = periodDaySet(periods);
+    const draft = user ? getDraft(user.id) : null;
+    const stale = !!draft?.dirty &&
+      (draft.days.length !== heat.size || draft.days.some((d) => !heat.has(d)));
     return {
       periods,
+      stale,
       summary,
       today,
       current: currentCycle(periods, today, next?.startIso ?? null, summary.weightedInterval || config.defaultCycleLength),
       hist: histogram(summary.intervals, 2),
-      heat: periodDaySet(periods),
+      heat,
       acc: accuracy(periods),
       rows: recentRows(periods),
     };
-  }, [cycles, predictions, config]);
+  }, [cycles, predictions, config, user]);
 
   if (loading) return <div className="stats-page"><p className="chart-empty">Loading…</p></div>;
 
-  const { periods, summary, current, hist, heat, acc, rows, today } = view;
+  const { periods, stale, summary, current, hist, heat, acc, rows, today } = view;
 
   if (periods.length === 0) {
     return (
@@ -105,6 +114,11 @@ function StatsPage() {
   return (
     <div className="stats-page">
       <h1 className="page-title">Statistics</h1>
+      {stale && (
+        <p className="stats-stale-badge" role="status">
+          Recalculate for accurate data — statistics data mismatch.
+        </p>
+      )}
 
       {/* KPI cards */}
       <section className="kpi-grid">

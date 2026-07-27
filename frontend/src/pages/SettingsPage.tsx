@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { getAutoUpdate, saveAutoUpdate, getSaveOnSelection, saveSaveOnSelection } from '../lib/storage';
 import DataSection from '../components/DataSection';
 import '../styles/settings.css';
 
@@ -16,6 +17,8 @@ const LEAD_MAX = 7;
 function SettingsPage() {
   const { user } = useAuth();
   const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [saveOnSelection, setSaveOnSelection] = useState(getSaveOnSelection);
+  const [autoUpdate, setAutoUpdate] = useState(getAutoUpdate);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +116,7 @@ function SettingsPage() {
             </label>
           )}
 
-          <label className="settings-row" title="Get an email when a new version of Rosella Rhythm is released. You can turn this off any time, including from a link in the email.">
+          <label className="settings-row" title="Get an email when a new version of Pink Cockatoo is released. You can turn this off any time, including from a link in the email.">
             <input
               type="checkbox"
               checked={prefs?.notifyReleases ?? false}
@@ -123,7 +126,7 @@ function SettingsPage() {
             <span className="settings-row-label">
               Email me about new versions
               <span className="settings-row-help">
-                A short note when Rosella Rhythm is updated. Nothing else — and no data leaves the app.
+                A short note when Pink Cockatoo is updated. Nothing else — and no data leaves the app.
               </span>
             </span>
           </label>
@@ -135,6 +138,54 @@ function SettingsPage() {
           )}
         </section>
       )}
+
+      <section className="settings-section" aria-labelledby="settings-calendar-heading">
+        <h2 id="settings-calendar-heading" className="settings-section-title">
+          Calendar
+        </h2>
+
+        <label
+          className="settings-row"
+          title="Painted days are saved to your account a few seconds after each click."
+        >
+          <input
+            type="checkbox"
+            checked={saveOnSelection}
+            onChange={(e) => {
+              setSaveOnSelection(e.target.checked);
+              saveSaveOnSelection(e.target.checked);
+            }}
+          />
+          <span className="settings-row-label">
+            Save dates on selection
+            <span className="settings-row-help">
+              Days you click are saved automatically after a few seconds, but they don't
+              influence predictions and accurate statistics unless you click on Recalculate.
+            </span>
+          </span>
+        </label>
+
+        <label
+          className="settings-row"
+          title="The cycle length and period duration fields follow the days you select on the calendar."
+        >
+          <input
+            type="checkbox"
+            checked={autoUpdate}
+            onChange={(e) => {
+              setAutoUpdate(e.target.checked);
+              saveAutoUpdate(e.target.checked);
+            }}
+          />
+          <span className="settings-row-label">
+            Auto-update from calendar
+            <span className="settings-row-help">
+              Cycle length and period duration follow the days you select. Turn this off to type
+              your own numbers before pressing Recalculate.
+            </span>
+          </span>
+        </label>
+      </section>
 
       <DataSection userId={user.id} />
     </div>
