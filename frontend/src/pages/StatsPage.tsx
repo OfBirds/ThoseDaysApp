@@ -3,9 +3,10 @@ import { apiFetch } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { findNextPrediction, predictionConfidence, type RecalcConfig } from '../lib/predictions';
 import {
-  toPeriods, summarize, histogram, currentCycle, periodDaySet, accuracy, recentRows,
+  toPeriods, periodsFromDays, summarize, histogram, currentCycle, periodDaySet, accuracy, recentRows,
   type CycleRecord,
 } from '../lib/stats';
+import { getDraft } from '../lib/storage';
 import LineChart from '../components/charts/LineChart';
 import BarStrip from '../components/charts/BarStrip';
 import Histogram from '../components/charts/Histogram';
@@ -66,25 +67,32 @@ function StatsPage() {
   }, [user]);
 
   const view = useMemo(() => {
-    const periods = toPeriods(cycles);
+    // Committed cycles are the official history (source badges, accuracy).
+    // A dirty calendar draft drives the live numbers so freshly painted days
+    // show up here without waiting for Recalculate.
+    const official = toPeriods(cycles);
+    const draft = user ? getDraft(user.id) : null;
+    const draftLive = !!(draft?.dirty && draft.days.length);
+    const periods = draftLive ? periodsFromDays(draft!.days) : official;
     const summary = summarize(periods, config.weights, config.tailWeight, config.defaultCycleLength);
     const today = todayIso();
     const next = findNextPrediction(predictions, today);
     return {
       periods,
+      draftLive,
       summary,
       today,
       current: currentCycle(periods, today, next?.startIso ?? null, summary.weightedInterval || config.defaultCycleLength),
       hist: histogram(summary.intervals, 2),
       heat: periodDaySet(periods),
-      acc: accuracy(periods),
-      rows: recentRows(periods),
+      acc: accuracy(official),
+      rows: recentRows(official),
     };
-  }, [cycles, predictions, config]);
+  }, [cycles, predictions, config, user]);
 
   if (loading) return <div className="stats-page"><p className="chart-empty">Loading…</p></div>;
 
-  const { periods, summary, current, hist, heat, acc, rows, today } = view;
+  const { periods, draftLive, summary, current, hist, heat, acc, rows, today } = view;
 
   if (periods.length === 0) {
     return (
@@ -105,6 +113,11 @@ function StatsPage() {
   return (
     <div className="stats-page">
       <h1 className="page-title">Statistics</h1>
+      {draftLive && (
+        <p className="card-hint">
+          Includes unsaved calendar days — predictions update when you press Recalculate.
+        </p>
+      )}
 
       {/* KPI cards */}
       <section className="kpi-grid">
