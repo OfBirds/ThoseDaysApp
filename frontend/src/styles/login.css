@@ -4,10 +4,11 @@
 .bsa-screen {
   --auth-accent: var(--primary);
   --auth-accent-fg: #fff;
-  --auth-bg: var(--bg);
+  --auth-ground: color-mix(in srgb, var(--primary) 8%, var(--bg));
+  --auth-surface: var(--surface);
   --auth-fg: var(--text);
   --auth-muted: var(--text-light);
-  --auth-border: color-mix(in srgb, var(--text) 22%, transparent);
+  --auth-border: color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .login-page {

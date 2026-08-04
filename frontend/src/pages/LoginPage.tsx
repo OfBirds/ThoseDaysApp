@@ -12,5 +12,5 @@ interface LoginPageProps {
 // only supplies its palette (login.css) and the legacy email/password form as the break-glass `legacy`
 // slot, shown when AUTH_MODE=legacy.
 export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
-  return <AuthScreen legacy={<LegacyLoginForm onSuccess={onLoginSuccess} />} />;
+  return <AuthScreen brand="Pink Cockatoo" legacy={<LegacyLoginForm onSuccess={onLoginSuccess} />} />;
 }
