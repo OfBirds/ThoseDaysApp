@@ -9,27 +9,29 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
-using OpenTelemetry.Exporter;
+using OpenTelemetry;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
-using Serilog.Sinks.OpenTelemetry;
 
-// Observability is OTel-first: OTEL_EXPORTER_OTLP_ENDPOINT (base URL of any
-// OTLP http/protobuf collector, e.g. http://collector:4318) ships logs AND
-// traces there. SEQ_URL is the Seq convenience path: logs via the native sink,
-// traces via Seq's OTLP ingest. Console + rolling file logging always works.
-// Every event is tagged with the app version so logs are filterable per release.
+// Logs -> Seq (Serilog native sink). Metrics + traces -> OTLP, to whatever
+// OTEL_EXPORTER_OTLP_ENDPOINT points at. Both destinations are externally
+// configurable (the homelab uses Seq for both; Seq ingests OTLP natively).
+// Console + rolling file logging always work.
 var seqUrl = Environment.GetEnvironmentVariable("SEQ_URL");
-var otlpBase = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")?.TrimEnd('/');
 var appVersion = Environment.GetEnvironmentVariable("APP_VERSION") ?? "dev";
 
 var logConfig = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.Hosting.Lifetime", LogEventLevel.Information)
+    .MinimumLevel.Override("System.Net.Http.HttpClient", LogEventLevel.Warning)
     .Enrich.FromLogContext()
+    .Enrich.WithMachineName()
+    .Enrich.WithProcessId()
+    .Enrich.WithThreadId()
     .Enrich.WithProperty("Application", "ThoseDays")
     .Enrich.WithProperty("Version", appVersion)
     .WriteTo.Console()
@@ -40,19 +42,8 @@ var logConfig = new LoggerConfiguration()
         retainedFileCountLimit: 31);
 
 if (!string.IsNullOrWhiteSpace(seqUrl))
-    logConfig = logConfig.WriteTo.Seq(seqUrl);
+    logConfig = logConfig.WriteTo.Seq(seqUrl, apiKey: Environment.GetEnvironmentVariable("SEQ_API_KEY"));
 
-if (!string.IsNullOrWhiteSpace(otlpBase))
-    logConfig = logConfig.WriteTo.OpenTelemetry(o =>
-    {
-        o.Endpoint = $"{otlpBase}/v1/logs";
-        o.Protocol = OtlpProtocol.HttpProtobuf;
-        o.ResourceAttributes = new Dictionary<string, object>
-        {
-            ["service.name"] = "ThoseDays",
-            ["service.version"] = appVersion,
-        };
-    });
 
 Log.Logger = logConfig.CreateLogger();
 
@@ -60,32 +51,19 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseSerilog();
 
-// Traces: the explicit OTLP base wins; else derived from SEQ_URL (Seq listens
-// for OTLP on port 5341). Full signal path either way — the exporter uses a
-// programmatic Endpoint as-is and does not append /v1/traces.
-string? otlpEndpoint = null;
-if (!string.IsNullOrWhiteSpace(otlpBase))
-{
-    otlpEndpoint = $"{otlpBase}/v1/traces";
-}
-else if (!string.IsNullOrWhiteSpace(seqUrl))
-{
-    var seqUri = new Uri(seqUrl);
-    otlpEndpoint = $"{seqUri.Scheme}://{seqUri.Host}:5341/ingest/otlp/v1/traces";
-}
+// Metrics + traces via the standard OTLP exporter, driven by OTEL_EXPORTER_OTLP_*.
+// Not hardwired to Seq — any OTLP ingest (collector, Jaeger, ...) works. Off when unset.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("ThoseDays", serviceVersion: appVersion))
+    // Metrics are collected by nothing here: Seq (the homelab OTLP target) ingests logs
+    // and traces only, not metrics — exporting them 404s. Re-add .WithMetrics + a metrics
+    // OTLP endpoint when a metrics backend exists.
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
 
-if (!string.IsNullOrWhiteSpace(otlpEndpoint))
-{
-    builder.Services.AddOpenTelemetry()
-        .ConfigureResource(r => r.AddService("ThoseDays", serviceVersion: appVersion))
-        .WithTracing(tracing => tracing
-            .AddAspNetCoreInstrumentation()
-            .AddOtlpExporter(o =>
-            {
-                o.Endpoint = new Uri(otlpEndpoint);
-                o.Protocol = OtlpExportProtocol.HttpProtobuf;
-            }));
-}
+if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+    builder.Services.AddOpenTelemetry().UseOtlpExporter();
 
 builder.Services.Configure<Api.Config.RecalcConfig>(builder.Configuration.GetSection("Recalc"));
 
