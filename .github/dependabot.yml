@@ -1,4 +1,13 @@
 version: 2
+
+# Every ecosystem is grouped, so a weekly run opens at most 6 PRs instead of ~13.
+# Two reasons this matters:
+#   1. Co-versioned packages must move together — split PRs bump one half of a
+#      package family against the other and fail restore (NU1605) or npm ci
+#      (ERESOLVE), as they did in the sibling repos.
+#   2. validate.yml serializes on the staging stack; a burst of PRs meant most of
+#      their runs were cancelled as superseded queued runs, so they merged blind.
+# Majors are split from minor/patch so one risky major can't block routine bumps.
 updates:
   # Backend NuGet packages
   - package-ecosystem: nuget
@@ -6,6 +15,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    groups:
+      backend:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      backend-major:
+        patterns: ["*"]
+        update-types: [major]
 
   # Frontend npm packages
   - package-ecosystem: npm
@@ -13,6 +29,13 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      frontend:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      frontend-major:
+        patterns: ["*"]
+        update-types: [major]
 
   # GitHub Actions used by the CI/deploy workflows
   - package-ecosystem: github-actions
@@ -20,3 +43,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
