@@ -52,6 +52,19 @@ public class RecalcRequest
     public List<string> Days { get; set; } = [];
     public int? CycleLength { get; set; }
     public int? PeriodDuration { get; set; }
+
+    /// <summary>
+    /// The user has seen and accepted that committed days missing from <see cref="Days"/>
+    /// will be deleted. Without it the server refuses such a commit (409) and lists them.
+    /// </summary>
+    public bool ConfirmRemovals { get; set; }
+}
+
+/// <summary>409 body: the committed days this Recalculate would delete.</summary>
+public class RecalcConflictResponse
+{
+    public string Error { get; set; } = "confirm_removals_required";
+    public List<string> DroppedDays { get; set; } = [];
 }
 
 public class RecalcResponse

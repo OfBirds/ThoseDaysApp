@@ -24,6 +24,21 @@ public class DraftController(AppDbContext context) : ControllerBase
         if (draft == null)
             return NoContent();
 
+        // A draft older than the newest committed cycle predates history it does not
+        // contain. The calendar seeds from a draft in preference to the actuals, so
+        // serving a stale one hides committed days and Recalculate then deletes them.
+        // Unsaved paint is worth less than committed history: drop the draft.
+        var newestCycle = await context.Cycles
+            .Where(c => c.UserId == userId)
+            .MaxAsync(c => (DateTime?)c.CreatedAt);
+
+        if (newestCycle > draft.UpdatedAt)
+        {
+            context.CalendarDrafts.Remove(draft);
+            await context.SaveChangesAsync();
+            return NoContent();
+        }
+
         var days = JsonSerializer.Deserialize<List<string>>(draft.DaysJson) ?? [];
         return Ok(new DraftResponse { Days = days, UpdatedAt = draft.UpdatedAt });
     }

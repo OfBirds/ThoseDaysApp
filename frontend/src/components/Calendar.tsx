@@ -92,6 +92,8 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
   const [pendingImport, setPendingImport] = useState<PendingImport | null>(() => getPendingImport(userId));
   const [savingImport, setSavingImport] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // Days the server says this Recalculate would delete; non-null = awaiting confirmation.
+  const [pendingRemovals, setPendingRemovals] = useState<string[] | null>(null);
   // Server copy of an unsaved draft (save-on-selection); null until fetched/absent.
   const [serverDraftDays, setServerDraftDays] = useState<string[] | null>(null);
   const saveTimer = useRef<number | null>(null);
@@ -348,10 +350,10 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
       setMsgOpen(true);
       return;
     }
-    runRecalculate();
+    void runRecalculate();
   };
 
-  const runRecalculate = async () => {
+  const runRecalculate = async (confirmRemovals = false) => {
     setMsgOpen(false);
     setRecalcError('');
     setRecalculating(true);
@@ -362,10 +364,21 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
         body: JSON.stringify({
           days: draft.days,
           cycleLength: draft.cycleLength,
-          periodDuration: draft.periodDuration
+          periodDuration: draft.periodDuration,
+          confirmRemovals
         })
       });
+
+      // 409: committing this day-set would delete days already saved. Show them and
+      // let the user decide — never delete saved history without asking.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => null);
+        setPendingRemovals(body?.droppedDays ?? []);
+        return;
+      }
       if (!res.ok) throw new Error('Recalculation failed');
+
+      setPendingRemovals(null);
 
       // The commit supersedes the draft: drop any pending save (it would
       // recreate the server draft with now-committed days) and the server copy.
@@ -605,7 +618,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
                 <button type="button" className="msg-modal-cancel" onClick={() => setMsgOpen(false)}>
                   Cancel
                 </button>
-                <button type="button" className="msg-modal-close" onClick={runRecalculate}>
+                <button type="button" className="msg-modal-close" onClick={() => runRecalculate()}>
                   Recalculate anyway
                 </button>
               </div>
@@ -614,6 +627,35 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
                 Got it
               </button>
             )}
+          </div>
+        </div>
+      )}
+      {pendingRemovals && (
+        <div className="msg-modal-backdrop" role="presentation" onClick={() => setPendingRemovals(null)}>
+          <div className="msg-modal error" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+            <h3 className="msg-modal-title">This will delete saved days</h3>
+            <p className="msg-modal-text">
+              {pendingRemovals.length === 1
+                ? '1 day is already saved but is not painted on the calendar. Recalculating deletes it:'
+                : `${pendingRemovals.length} days are already saved but are not painted on the calendar. Recalculating deletes them:`}
+            </p>
+            <p className="msg-modal-text removed-days">{pendingRemovals.join(', ')}</p>
+            <p className="msg-modal-text">
+              If you didn’t mean to remove them, cancel and paint them back first.
+            </p>
+            <div className="msg-modal-actions">
+              <button type="button" className="msg-modal-cancel" onClick={() => setPendingRemovals(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="msg-modal-close"
+                disabled={recalculating}
+                onClick={() => { setPendingRemovals(null); void runRecalculate(true); }}
+              >
+                Delete and recalculate
+              </button>
+            </div>
           </div>
         </div>
       )}
