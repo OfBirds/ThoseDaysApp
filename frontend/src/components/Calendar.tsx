@@ -94,6 +94,8 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   // Days the server says this Recalculate would delete; non-null = awaiting confirmation.
   const [pendingRemovals, setPendingRemovals] = useState<string[] | null>(null);
+  // The list changed under a confirmation the user had already given.
+  const [removalsChanged, setRemovalsChanged] = useState(false);
   // Server copy of an unsaved draft (save-on-selection); null until fetched/absent.
   const [serverDraftDays, setServerDraftDays] = useState<string[] | null>(null);
   const saveTimer = useRef<number | null>(null);
@@ -353,7 +355,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
     void runRecalculate();
   };
 
-  const runRecalculate = async (confirmRemovals = false) => {
+  const runRecalculate = async (confirmedRemovals: string[] = []) => {
     setMsgOpen(false);
     setRecalcError('');
     setRecalculating(true);
@@ -365,7 +367,7 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
           days: draft.days,
           cycleLength: draft.cycleLength,
           periodDuration: draft.periodDuration,
-          confirmRemovals
+          confirmedRemovals
         })
       });
 
@@ -373,12 +375,17 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
       // let the user decide — never delete saved history without asking.
       if (res.status === 409) {
         const body = await res.json().catch(() => null);
-        setPendingRemovals(body?.droppedDays ?? []);
+        const shown = body?.droppedDays ?? [];
+        // A 409 after the user already confirmed means days were committed while the
+        // dialog was open (another device, or an auto-fill). Show the new list.
+        setRemovalsChanged(confirmedRemovals.length > 0);
+        setPendingRemovals(shown);
         return;
       }
       if (!res.ok) throw new Error('Recalculation failed');
 
       setPendingRemovals(null);
+      setRemovalsChanged(false);
 
       // The commit supersedes the draft: drop any pending save (it would
       // recreate the server draft with now-committed days) and the server copy.
@@ -631,9 +638,20 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
         </div>
       )}
       {pendingRemovals && (
-        <div className="msg-modal-backdrop" role="presentation" onClick={() => setPendingRemovals(null)}>
+        <div
+          className="msg-modal-backdrop"
+          role="presentation"
+          onClick={() => { setPendingRemovals(null); setRemovalsChanged(false); }}
+        >
           <div className="msg-modal error" role="alertdialog" aria-modal="true" onClick={e => e.stopPropagation()}>
-            <h3 className="msg-modal-title">This will delete saved days</h3>
+            <h3 className="msg-modal-title">
+              {removalsChanged ? 'More saved days have appeared' : 'This will delete saved days'}
+            </h3>
+            {removalsChanged && (
+              <p className="msg-modal-text">
+                Your history changed while this was open — here is the current list.
+              </p>
+            )}
             <p className="msg-modal-text">
               {pendingRemovals.length === 1
                 ? '1 day is already saved but is not painted on the calendar. Recalculating deletes it:'
@@ -644,14 +662,18 @@ function Calendar({ cycles, onCommitted, userId, onNextPeriod, onDraftStats }: C
               If you didn’t mean to remove them, cancel and paint them back first.
             </p>
             <div className="msg-modal-actions">
-              <button type="button" className="msg-modal-cancel" onClick={() => setPendingRemovals(null)}>
+              <button
+                type="button"
+                className="msg-modal-cancel"
+                onClick={() => { setPendingRemovals(null); setRemovalsChanged(false); }}
+              >
                 Cancel
               </button>
               <button
                 type="button"
                 className="msg-modal-close"
                 disabled={recalculating}
-                onClick={() => { setPendingRemovals(null); void runRecalculate(true); }}
+                onClick={() => { const shown = pendingRemovals; setPendingRemovals(null); void runRecalculate(shown); }}
               >
                 Delete and recalculate
               </button>

@@ -66,7 +66,7 @@ public class PredictionsController(ICycleService cycleService) : ControllerBase
         }
 
         var outcome = await cycleService.RecalculateAsync(
-            userId, days, request.CycleLength, request.PeriodDuration, request.ConfirmRemovals);
+            userId, days, request.CycleLength, request.PeriodDuration, request.ConfirmedRemovals);
 
         // Recalculate replaces the whole history. If that would delete days the client
         // never showed the user (a stale draft), stop and report them instead — the client

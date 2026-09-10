@@ -46,7 +46,7 @@ public class CalendarDraftTests : IDisposable
         });
         await _db.SaveChangesAsync();
 
-        await _svc.RecalculateAsync(_userId, [new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmRemovals: false);
+        await _svc.RecalculateAsync(_userId, [new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmedRemovals: []);
 
         Assert.Empty(_db.CalendarDrafts.Where(d => d.UserId == _userId));
     }
@@ -125,7 +125,7 @@ public class CalendarDraftTests : IDisposable
 
         // Commit a day-set that keeps only the first August day — the stale-draft shape.
         var outcome = await _svc.RecalculateAsync(
-            _userId, [new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmRemovals: false);
+            _userId, [new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmedRemovals: []);
 
         Assert.False(outcome.IsCommitted);
         Assert.Equal(["2026-08-13", "2026-08-14", "2026-08-15"], outcome.DroppedDays);
@@ -146,7 +146,7 @@ public class CalendarDraftTests : IDisposable
         await _db.SaveChangesAsync();
 
         var outcome = await _svc.RecalculateAsync(
-            _userId, [new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmRemovals: true);
+            _userId, [new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmedRemovals: ["2026-08-13", "2026-08-14", "2026-08-15"]);
 
         Assert.True(outcome.IsCommitted);
         Assert.Equal(1, _db.Cycles.Single(c => c.UserId == _userId).DurationDays);
@@ -170,17 +170,119 @@ public class CalendarDraftTests : IDisposable
                 new DateTime(2026, 8, 13, 0, 0, 0, DateTimeKind.Utc),
                 new DateTime(2026, 9, 10, 0, 0, 0, DateTimeKind.Utc)
             ],
-            null, null, confirmRemovals: false);
+            null, null, confirmedRemovals: []);
 
         Assert.True(outcome.IsCommitted);
         Assert.Empty(outcome.DroppedDays);
+    }
+
+    /// <summary>
+    /// A reviewer's finding: confirming a removal used to be a bare boolean, so days committed
+    /// while the dialog was open (another device, an auto-fill) were deleted without ever being
+    /// shown. The confirmation names the days, and anything outside it re-prompts.
+    /// </summary>
+    [Fact]
+    public async Task RecalculateAsync_DaysCommittedAfterTheDialogOpened_RepromptsInsteadOfDeleting()
+    {
+        _db.Cycles.Add(new Cycle
+        {
+            UserId = _userId,
+            StartDate = new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc),
+            DurationDays = 4
+        });
+        // Committed after the user was shown the August dates.
+        _db.Cycles.Add(new Cycle
+        {
+            UserId = _userId,
+            StartDate = new DateTime(2026, 9, 8, 0, 0, 0, DateTimeKind.Utc),
+            DurationDays = 2
+        });
+        await _db.SaveChangesAsync();
+
+        var outcome = await _svc.RecalculateAsync(
+            _userId, [new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc)], null, null,
+            confirmedRemovals: ["2026-08-13", "2026-08-14", "2026-08-15"]);
+
+        Assert.False(outcome.IsCommitted);
+        Assert.Contains("2026-09-08", outcome.DroppedDays);
+        Assert.Contains("2026-09-09", outcome.DroppedDays);
+
+        // Nothing was deleted.
+        Assert.Equal(2, _db.Cycles.Count(c => c.UserId == _userId));
+    }
+
+    /// <summary>
+    /// A reviewer's finding: DeleteCycleAsync left the saved draft describing a period that no
+    /// longer exists. Recalculating that draft re-created it, and because the days were no longer
+    /// committed there was nothing for the 409 guard to catch.
+    /// </summary>
+    [Fact]
+    public async Task DeleteCycleAsync_ClearsSavedDraft()
+    {
+        var cycle = new Cycle
+        {
+            UserId = _userId,
+            StartDate = new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc),
+            DurationDays = 2
+        };
+        _db.Cycles.Add(cycle);
+        _db.CalendarDrafts.Add(new CalendarDraft
+        {
+            UserId = _userId,
+            DaysJson = """["2026-08-12","2026-08-13"]""",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        await _svc.DeleteCycleAsync(_userId, cycle.Id);
+
+        Assert.Empty(_db.CalendarDrafts.Where(d => d.UserId == _userId));
+    }
+
+    [Fact]
+    public async Task UpdateCycleAsync_ClearsSavedDraft()
+    {
+        var cycle = new Cycle
+        {
+            UserId = _userId,
+            StartDate = new DateTime(2026, 8, 12, 0, 0, 0, DateTimeKind.Utc),
+            DurationDays = 2
+        };
+        _db.Cycles.Add(cycle);
+        _db.CalendarDrafts.Add(new CalendarDraft
+        {
+            UserId = _userId,
+            DaysJson = """["2026-08-12","2026-08-13"]""",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        await _svc.UpdateCycleAsync(_userId, cycle.Id, new DateTime(2026, 8, 20, 0, 0, 0, DateTimeKind.Utc), 3);
+
+        Assert.Empty(_db.CalendarDrafts.Where(d => d.UserId == _userId));
+    }
+
+    [Fact]
+    public async Task AddCycleAsync_ClearsSavedDraft()
+    {
+        _db.CalendarDrafts.Add(new CalendarDraft
+        {
+            UserId = _userId,
+            DaysJson = """["2026-08-12"]""",
+            UpdatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+
+        await _svc.AddCycleAsync(_userId, new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), 3);
+
+        Assert.Empty(_db.CalendarDrafts.Where(d => d.UserId == _userId));
     }
 
     [Fact]
     public async Task RecalculateAsync_NoDraft_StillSucceeds()
     {
         var outcome = await _svc.RecalculateAsync(
-            _userId, [new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmRemovals: false);
+            _userId, [new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)], null, null, confirmedRemovals: []);
 
         Assert.Single(outcome.Cycles);
         Assert.True(outcome.CycleLength > 0);

@@ -48,8 +48,23 @@ Three rules follow, all enforced in code:
 3. **Deleting committed days is always confirmed.** If the posted day-set omits days
    that are currently committed, `POST /recalculate` returns **409** with
    `droppedDays` and writes nothing; the client lists the dates and re-posts with
-   `confirmRemovals: true` only after the user accepts. This is the backstop — it holds
-   even if rules 1 and 2 are defeated by some future path.
+   `confirmedRemovals` — **the days it actually showed the user**, not a bare flag. A
+   commit that would delete a day outside that list is refused again with the current
+   list, so days committed while the dialog was open (another device, an auto-fill)
+   are never deleted unseen. This is the backstop — it holds even if rules 1 and 2 are
+   defeated by some future path.
+
+Rule 1 is stronger than "reconcile and import": **every** path that writes `Cycles`
+either merges into the saved draft (`ReconcileAsync`) or clears it
+(`AddCycleAsync`, `UpdateCycleAsync`, `DeleteCycleAsync`, `PatchCyclesAsync`,
+`RecalculateAsync`). Delete and update matter as much as the rest and are easy to miss:
+neither creates a newer `Cycles.CreatedAt`, so rule 2 cannot see them, and a draft that
+still names a deleted period simply recreates it on the next Recalculate — with no
+dropped days for rule 3 to catch.
+
+`GET /draft` is deliberately **read-only**. Deleting the stale row there would race a
+concurrent `PUT` (read, then unconditional delete by key) and destroy a draft that had
+just been saved. Not serving it is enough; the next `PUT` overwrites it.
 
 This applies to new edits **and** edits of already-saved data — to confirm any
 change, the user runs Recalculate again. **No recalc → no future periods.**
