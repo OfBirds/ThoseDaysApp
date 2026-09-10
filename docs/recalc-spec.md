@@ -17,12 +17,54 @@ it's the value that projects the forecast forward.
 
 Two states for the user's data:
 
-- **Draft (frontend-only):** painting/erasing period days and editing the two
-  number fields live in **browser storage only** (localStorage, survives refresh).
-  Nothing hits the API. UI shows an "unsaved changes" indicator.
+- **Draft:** painting/erasing period days and editing the two number fields live in
+  **browser storage** (localStorage, survives refresh). UI shows an "unsaved changes"
+  indicator. ~~Nothing hits the API.~~ **Superseded 2026-07-27:** with save-on-selection
+  on, the day-set is also mirrored to the server (`CalendarDrafts`, `GET/PUT
+  /api/user/{id}/draft`) so an unsaved draft follows the account across devices.
 - **Committed (DB):** pressing **Recalculate** is the *only* action that writes to
   the database. It commits the actual period days, recomputes the two averages,
   regenerates the forward forecast, and returns it to paint.
+
+### A draft must never be behind the committed history
+
+Recalculate is a **full replace**: committed days missing from the posted day-set are
+deleted. That makes a stale draft destructive, because the calendar seeds from a draft
+in preference to the DB actuals.
+
+**This caused real data loss on 2026-09-10.** A user's draft had been saved in early
+August. On 2026-08-29 `ReconcileAsync` auto-filled her August period from an elapsed
+forecast — days the draft did not contain. On 2026-09-10 the app seeded from that stale
+draft, she painted one September day and pressed Recalculate, and August collapsed from
+four days to one. Restored from the nightly `db-backup-prod` dump.
+
+Three rules follow, all enforced in code:
+
+1. **Anything that commits cycles behind the user's back keeps the draft in step.**
+   `ReconcileAsync` folds its auto-filled days into a saved draft; `PatchCyclesAsync`
+   (import) rewrites history in its window, so it clears the draft outright.
+2. **A stale draft is never served.** `GET /draft` drops a draft older than the newest
+   committed cycle and returns `204`. Unsaved paint is worth less than saved history.
+3. **Deleting committed days is always confirmed.** If the posted day-set omits days
+   that are currently committed, `POST /recalculate` returns **409** with
+   `droppedDays` and writes nothing; the client lists the dates and re-posts with
+   `confirmedRemovals` — **the days it actually showed the user**, not a bare flag. A
+   commit that would delete a day outside that list is refused again with the current
+   list, so days committed while the dialog was open (another device, an auto-fill)
+   are never deleted unseen. This is the backstop — it holds even if rules 1 and 2 are
+   defeated by some future path.
+
+Rule 1 is stronger than "reconcile and import": **every** path that writes `Cycles`
+either merges into the saved draft (`ReconcileAsync`) or clears it
+(`AddCycleAsync`, `UpdateCycleAsync`, `DeleteCycleAsync`, `PatchCyclesAsync`,
+`RecalculateAsync`). Delete and update matter as much as the rest and are easy to miss:
+neither creates a newer `Cycles.CreatedAt`, so rule 2 cannot see them, and a draft that
+still names a deleted period simply recreates it on the next Recalculate — with no
+dropped days for rule 3 to catch.
+
+`GET /draft` is deliberately **read-only**. Deleting the stale row there would race a
+concurrent `PUT` (read, then unconditional delete by key) and destroy a draft that had
+just been saved. Not serving it is enough; the next `PUT` overwrites it.
 
 This applies to new edits **and** edits of already-saved data — to confirm any
 change, the user runs Recalculate again. **No recalc → no future periods.**

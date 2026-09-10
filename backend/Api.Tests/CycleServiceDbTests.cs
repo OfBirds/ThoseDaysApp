@@ -53,8 +53,10 @@ public class CycleServiceDbTests : IDisposable
 
         var days = new[] { new DateTime(2025, 3, 1), new DateTime(2025, 3, 2), new DateTime(2025, 3, 3) };
 
-        var (cycleLength, periodDuration, cycles, forecast) =
-            await _svc.RecalculateAsync(_userId, days, null, null);
+        // The painted set drops the seeded cycle's days, so the removals must be confirmed.
+        var outcome = await _svc.RecalculateAsync(_userId, days, null, null,
+            confirmedRemovals: ["2025-01-01", "2025-01-02", "2025-01-03", "2025-01-04", "2025-01-05"]);
+        var (cycleLength, periodDuration, cycles) = (outcome.CycleLength, outcome.PeriodDuration, outcome.Cycles);
 
         // Old cycle should be gone, new one from the painted days.
         Assert.False(await _db.Cycles.AnyAsync(c => c.Id == oldCycle.Id));
@@ -75,8 +77,9 @@ public class CycleServiceDbTests : IDisposable
             new DateTime(2025, 7, 1), new DateTime(2025, 7, 2),  // period 2 — 30d interval
         };
 
-        var (cycleLength, periodDuration, _, _) =
-            await _svc.RecalculateAsync(_userId, days, cycleLengthOverride: 26, periodDurationOverride: 3);
+        var outcome = await _svc.RecalculateAsync(
+            _userId, days, cycleLengthOverride: 26, periodDurationOverride: 3, confirmedRemovals: []);
+        var (cycleLength, periodDuration) = (outcome.CycleLength, outcome.PeriodDuration);
 
         // Overrides should win over the computed values.
         Assert.Equal(26, cycleLength);
@@ -91,18 +94,18 @@ public class CycleServiceDbTests : IDisposable
             new DateTime(2025, 2, 1), new DateTime(2025, 2, 2),
         };
 
-        var (_, _, _, forecast) = await _svc.RecalculateAsync(_userId, days, null, null);
+        var outcome = await _svc.RecalculateAsync(_userId, days, null, null, confirmedRemovals: []);
 
-        Assert.Equal(TestConfig.ForecastCount, forecast.Count);
+        Assert.Equal(TestConfig.ForecastCount, outcome.Forecast.Count);
     }
 
     [Fact]
     public async Task RecalculateAsync_CyclesFlaggedAutoFalse()
     {
         var days = new[] { new DateTime(2025, 5, 10) };
-        var (_, _, cycles, _) = await _svc.RecalculateAsync(_userId, days, null, null);
+        var outcome = await _svc.RecalculateAsync(_userId, days, null, null, confirmedRemovals: []);
 
-        Assert.All(cycles, c => Assert.False(c.Auto));
+        Assert.All(outcome.Cycles, c => Assert.False(c.Auto));
     }
 
     // --- ReconcileAsync ----------------------------------------------------------

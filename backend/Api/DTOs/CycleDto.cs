@@ -52,6 +52,21 @@ public class RecalcRequest
     public List<string> Days { get; set; } = [];
     public int? CycleLength { get; set; }
     public int? PeriodDuration { get; set; }
+
+    /// <summary>
+    /// The committed days the user was shown and accepted losing (ISO yyyy-MM-dd), echoed back
+    /// from the 409. A commit that would delete a day not in this list is refused (409) and the
+    /// current list returned — so days committed while the dialog was open are never deleted
+    /// unseen. Empty on the first attempt.
+    /// </summary>
+    public List<string> ConfirmedRemovals { get; set; } = [];
+}
+
+/// <summary>409 body: the committed days this Recalculate would delete.</summary>
+public class RecalcConflictResponse
+{
+    public string Error { get; set; } = "confirm_removals_required";
+    public List<string> DroppedDays { get; set; } = [];
 }
 
 public class RecalcResponse

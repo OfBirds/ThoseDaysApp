@@ -65,8 +65,17 @@ public class PredictionsController(ICycleService cycleService) : ControllerBase
             }
         }
 
+        var outcome = await cycleService.RecalculateAsync(
+            userId, days, request.CycleLength, request.PeriodDuration, request.ConfirmedRemovals);
+
+        // Recalculate replaces the whole history. If that would delete days the client
+        // never showed the user (a stale draft), stop and report them instead — the client
+        // confirms and re-posts with confirmRemovals.
+        if (!outcome.IsCommitted)
+            return Conflict(new RecalcConflictResponse { DroppedDays = [.. outcome.DroppedDays] });
+
         var (cycleLength, periodDuration, cycles, forecast) =
-            await cycleService.RecalculateAsync(userId, days, request.CycleLength, request.PeriodDuration);
+            (outcome.CycleLength, outcome.PeriodDuration, outcome.Cycles, outcome.Forecast);
 
         return Ok(new RecalcResponse
         {

@@ -16,8 +16,9 @@ public interface ICycleService
     Task<bool> DeleteCycleAsync(Guid userId, Guid cycleId);
     Task<(double averageCycleLength, double averageInterval, int totalPeriods)> GetStatsAsync(Guid userId);
     Task<List<Prediction>> GeneratePredictionsAsync(Guid userId, int numCycles);
-    Task<(int cycleLength, int periodDuration, List<Cycle> cycles, List<Prediction> forecast)> RecalculateAsync(
-        Guid userId, IEnumerable<DateTime> days, int? cycleLengthOverride, int? periodDurationOverride);
+    Task<RecalcOutcome> RecalculateAsync(
+        Guid userId, IEnumerable<DateTime> days, int? cycleLengthOverride, int? periodDurationOverride,
+        IReadOnlyCollection<string> confirmedRemovals);
     Task<int> ReconcileAsync(Guid userId, DateTime localToday);
     Task<ExportDocument> BuildExportAsync(Guid userId, int? cycles, string kind, string? appVersion);
     Task<ImportResultResponse> PatchCyclesAsync(Guid userId, List<ExportCycle> imported);
@@ -60,6 +61,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         };
 
         context.Cycles.Add(cycle);
+        await ClearSavedDraftAsync(userId);
         await context.SaveChangesAsync();
 
         await GeneratePredictionsAsync(userId, config.ForecastCount);
@@ -78,6 +80,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         cycle.Corrected = true;
         cycle.Auto = false; // a user edit confirms the entry
 
+        await ClearSavedDraftAsync(userId);
         await context.SaveChangesAsync();
 
         await GeneratePredictionsAsync(userId, config.ForecastCount);
@@ -92,6 +95,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
             return false;
 
         context.Cycles.Remove(cycle);
+        await ClearSavedDraftAsync(userId);
         await context.SaveChangesAsync();
 
         await GeneratePredictionsAsync(userId, config.ForecastCount);
@@ -123,14 +127,36 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         return await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, numCycles, confidence);
     }
 
-    public async Task<(int cycleLength, int periodDuration, List<Cycle> cycles, List<Prediction> forecast)> RecalculateAsync(
-        Guid userId, IEnumerable<DateTime> days, int? cycleLengthOverride, int? periodDurationOverride)
+    public async Task<RecalcOutcome> RecalculateAsync(
+        Guid userId, IEnumerable<DateTime> days, int? cycleLengthOverride, int? periodDurationOverride,
+        IReadOnlyCollection<string> confirmedRemovals)
     {
         // Replace the user's actuals with the committed painted day-set.
         var existing = await context.Cycles.Where(c => c.UserId == userId).ToListAsync();
+
+        // Recalculate is a full replace: anything committed but missing from the posted
+        // day-set is deleted. A client working from a stale draft would silently destroy
+        // history that way (it happened: a draft saved before an auto-fill reconcile wiped
+        // a whole month), so removals must be confirmed explicitly.
+        var posted = days.Select(d => ToUtc(d).Date).ToHashSet();
+        var dropped = existing
+            .SelectMany(c => SpanDays(c.StartDate.Date, c.DurationDays))
+            .Distinct()
+            .Where(d => !posted.Contains(d))
+            .OrderBy(d => d)
+            .Select(Iso)
+            .ToList();
+
+        // The confirmation names the days the user was actually shown. Anything now being
+        // deleted that is not among them appeared after the dialog opened (a concurrent
+        // reconcile, or another device) — ask again rather than delete it unseen.
+        var unconfirmed = dropped.Where(d => !confirmedRemovals.Contains(d)).ToList();
+        if (unconfirmed.Count > 0)
+            return RecalcOutcome.NeedsConfirmation(dropped);
+
         context.Cycles.RemoveRange(existing);
 
-        var periods = GroupDaysIntoPeriods(days.Select(d => ToUtc(d).Date));
+        var periods = GroupDaysIntoPeriods(posted);
 
         var newCycles = periods.Select(p => new Cycle
         {
@@ -143,8 +169,7 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         context.Cycles.AddRange(newCycles);
 
         // The committed day-set supersedes any saved calendar draft — drop the server copy.
-        var drafts = await context.CalendarDrafts.Where(d => d.UserId == userId).ToListAsync();
-        context.CalendarDrafts.RemoveRange(drafts);
+        await ClearSavedDraftAsync(userId);
         // NOTE: deliberately no SaveChanges here. The cycle removals/adds stay tracked
         // and are flushed together with the prediction changes by the single
         // SaveChanges inside RegenerateForecastAsync — one atomic, batched commit.
@@ -158,7 +183,44 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
         DateTime? lastStart = periods.Count > 0 ? periods[^1].Start : null;
         var forecast = await RegenerateForecastAsync(userId, lastStart, cycleLength, periodDuration, config.ForecastCount, confidence);
 
-        return (cycleLength, periodDuration, newCycles, forecast);
+        return RecalcOutcome.Committed(cycleLength, periodDuration, newCycles, forecast, dropped);
+    }
+
+    /// <summary>
+    /// Add days to the user's saved calendar draft, if one exists. No-op without a draft —
+    /// this never creates one, it only stops an existing draft from falling behind the DB.
+    /// Does not save; the caller's SaveChanges commits it.
+    /// </summary>
+    private async Task MergeIntoSavedDraftAsync(Guid userId, IEnumerable<DateTime> days)
+    {
+        var draft = await context.CalendarDrafts.FirstOrDefaultAsync(d => d.UserId == userId);
+        if (draft == null)
+            return;
+
+        var merged = (System.Text.Json.JsonSerializer.Deserialize<List<string>>(draft.DaysJson) ?? [])
+            .Concat(days.Select(Iso))
+            .Distinct()
+            .OrderBy(d => d, StringComparer.Ordinal)
+            .ToList();
+
+        draft.DaysJson = System.Text.Json.JsonSerializer.Serialize(merged);
+        draft.UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Drop the user's saved calendar draft. Every path that writes Cycles either merges into
+    /// the draft (reconcile) or clears it here, so a saved draft can never describe a history
+    /// that no longer exists. Does not save; the caller's SaveChanges commits it.
+    /// </summary>
+    private async Task ClearSavedDraftAsync(Guid userId) =>
+        context.CalendarDrafts.RemoveRange(
+            await context.CalendarDrafts.Where(d => d.UserId == userId).ToListAsync());
+
+    /// <summary>Every date a cycle covers, inclusive of its start.</summary>
+    private static IEnumerable<DateTime> SpanDays(DateTime start, int durationDays)
+    {
+        for (var i = 0; i < Math.Max(1, durationDays); i++)
+            yield return start.AddDays(i);
     }
 
     /// <summary>
@@ -192,6 +254,12 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
             });
         }
         context.Predictions.RemoveRange(elapsed);
+
+        // An unsaved draft predates these auto-filled days; committing it as-is would
+        // delete them. Fold them in so the draft always covers what is committed.
+        await MergeIntoSavedDraftAsync(
+            userId, elapsed.SelectMany(p => SpanDays(p.PredictedStart.Date, p.PredictedDuration)));
+
         await context.SaveChangesAsync();
 
         // Regenerate so there are always ForecastCount future periods.
@@ -291,6 +359,10 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
                     : DateTime.SpecifyKind(DateTime.Parse(c.PredictedStart!, System.Globalization.CultureInfo.InvariantCulture).Date, DateTimeKind.Utc),
             });
         }
+
+        // The import rewrites history in its window; a draft saved before it is stale.
+        await ClearSavedDraftAsync(userId);
+
         await context.SaveChangesAsync();
 
         await GeneratePredictionsAsync(userId, config.ForecastCount);
@@ -468,4 +540,36 @@ public class CycleService(AppDbContext context, IOptions<RecalcConfig> configOpt
 
         return periods;
     }
+}
+
+/// <summary>
+/// Result of a Recalculate. Recalculate replaces the whole history with the posted
+/// day-set, so when that would delete already-committed days the service refuses and
+/// hands back the dates instead — the caller re-posts with confirmRemovals once the
+/// user has seen them.
+/// </summary>
+public class RecalcOutcome
+{
+    public bool IsCommitted { get; private init; }
+    public IReadOnlyList<string> DroppedDays { get; private init; } = [];
+    public int CycleLength { get; private init; }
+    public int PeriodDuration { get; private init; }
+    public List<Cycle> Cycles { get; private init; } = [];
+    public List<Prediction> Forecast { get; private init; } = [];
+
+    public static RecalcOutcome NeedsConfirmation(IReadOnlyList<string> droppedDays) =>
+        new() { IsCommitted = false, DroppedDays = droppedDays };
+
+    public static RecalcOutcome Committed(
+        int cycleLength, int periodDuration, List<Cycle> cycles, List<Prediction> forecast,
+        IReadOnlyList<string> droppedDays) =>
+        new()
+        {
+            IsCommitted = true,
+            CycleLength = cycleLength,
+            PeriodDuration = periodDuration,
+            Cycles = cycles,
+            Forecast = forecast,
+            DroppedDays = droppedDays
+        };
 }

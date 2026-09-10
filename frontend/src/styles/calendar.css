@@ -196,6 +196,18 @@
   color: var(--text);
 }
 
+/* The saved days a Recalculate would delete — long lists must scroll, not stretch. */
+.msg-modal-text.removed-days {
+  max-height: 8rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--surface-alt, rgba(127, 127, 127, 0.12));
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .msg-modal-close {
   display: block;
   margin-left: auto;
